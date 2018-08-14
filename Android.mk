@@ -11,12 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+ifneq (,$(findstring $(USE_SOUND_TRIGGER_HAL),athletico))
 
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := sound_trigger.primary.msmnile
+LOCAL_MODULE := sound_trigger.primary.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := sound_trigger_hw_iaxxx.c cvq_util.c
 LOCAL_VENDOR_MODULE := true
@@ -67,3 +68,5 @@ LOCAL_SRC_FILES := ./tests/tunnel_test.c \
 LOCAL_32_BIT_ONLY := true
 LOCAL_SHARED_LIBRARIES := liblog libcutils libtunnel
 include $(BUILD_EXECUTABLE)
+
+endif
