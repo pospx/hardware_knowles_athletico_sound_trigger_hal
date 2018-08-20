@@ -1,4 +1,4 @@
-#define LOG_TAG "ia_tunneling_hal"
+#define LOG_TAG "SoundTriggerKnowles_HAL_tunneling"
 #define LOG_NDEBUG 0
 
 #include <stdio.h>

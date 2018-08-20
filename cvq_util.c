@@ -313,11 +313,11 @@ int sensor_event_init_params()
         return err;
     }
 
-    ALOGD("Registering for 1 event\n");
+    ALOGD("Registering for 3 sensor mode switch events\n");
 
     // Subscribe for events
     ei.src_id       = PLUGIN3_SRC_ID;
-    ei.event_id     = 0;    // 0 - Keyword detection
+    ei.event_id     = 0;    // 0 - Mode switch to presence mode
     ei.dst_id       = IAXXX_SYSID_SCRIPT_MGR;
     ei.dst_opaque   = 0x1201;
     err = ioctl(fileno(cvq_node), ODSP_EVENT_SUBSCRIBE, (unsigned long) &ei);
@@ -329,7 +329,7 @@ int sensor_event_init_params()
 
     // Subscribe for events
     ei.src_id       = PLUGIN3_SRC_ID;
-    ei.event_id     = 1;    // 2 - Keyword detection
+    ei.event_id     = 1;    // 1 - Mode switch to detected mode.
     ei.dst_id       = IAXXX_SYSID_SCRIPT_MGR;
     ei.dst_opaque   = 0x1202;
     err = ioctl(fileno(cvq_node), ODSP_EVENT_SUBSCRIBE, (unsigned long) &ei);
@@ -341,7 +341,7 @@ int sensor_event_init_params()
 
     // Subscribe for events
     ei.src_id       = PLUGIN3_SRC_ID;
-    ei.event_id     = 2;    // 2 - Keyword detection
+    ei.event_id     = 2;    // 2 - Mode switch to max mode
     ei.dst_id       = IAXXX_SYSID_HOST;  // update this to HOST_1 for Customer
     ei.dst_opaque   = 0;
     err = ioctl(fileno(cvq_node), ODSP_EVENT_SUBSCRIBE, (unsigned long) &ei);
@@ -478,7 +478,7 @@ int setup_mic_routes()
         return err;
     }
 
-    // Create ok google plugin
+    // Create Dummy sensor plugin
     pi.plg_idx  = 0;
     pi.pkg_id = sensor_pkg_id;
     pi.block_id = 1;

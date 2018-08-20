@@ -23,7 +23,7 @@ struct tunlMsg {
   uint32_t tunlSrc;
   uint32_t tunlMode;
   uint32_t tunlEncode;
-} __attribute__((packed));
+} __packed;
 struct iaxxx_tunnel_header {
   uint8_t magic[4];
   uint16_t tunnel_id;
@@ -34,37 +34,14 @@ struct iaxxx_tunnel_header {
   uint8_t encoding;
   uint8_t sample_rate;
   char buf[0];
-} __attribute__((packed));
+} __packed;
 struct iaxxx_tnl_evt_info {
   uint16_t src_id;
   uint16_t event_id;
   uint16_t dst_id;
   uint32_t dst_opaque;
   uint32_t evt_threshold;
-} __attribute__((packed));
-enum {
-  TNL_VQ_CONFIDENCE = 0,
-  TNL_CS_OUT1,
-  TNL_CS_OUT2,
-  TNL_DOA,
-  TNL_CVQ,
-  TNL_MIC1,
-  TNL_MIC2,
-  TNL_MIC3,
-  TNL_MIC4,
-  TNL_AEC_REF1,
-  TNL_AEC_REF2,
-  TNL_AEC_MIXER,
-  TNL_MIC1_Q15,
-  TNL_MIC2_Q15,
-  TNL_MIC3_Q15,
-  TNL_MIC4_Q15,
-  TNL_AEC_MIXER_Q15,
-  TNL_MBC,
-  TNL_PEQ,
-  TNL_VP_PARAM,
-  TNL_MAX,
-};
+} __packed;
 #define TUNNEL_SETUP _IOWR('K', 0x011, struct tunlMsg)
 #define TUNNEL_TERMINATE _IOWR('K', 0x012, struct tunlMsg)
 #define TUNNEL_SUBSCRIBE_META _IO('K', 0x013)
