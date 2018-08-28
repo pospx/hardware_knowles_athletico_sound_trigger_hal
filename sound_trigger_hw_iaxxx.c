@@ -68,7 +68,7 @@
 
 // Define this macro to enable test stub to simulate the Generic Sound Model
 // form the SoundTrigger HAL.
-#define SIMULATE_GSM_TEST_STUB
+//#define SIMULATE_GSM_TEST_STUB
 
 static const struct sound_trigger_properties hw_properties = {
     "Knowles Electronics",      // implementor
@@ -659,7 +659,9 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
 #ifdef SIMULATE_GSM_TEST_STUB
     if (SOUND_MODEL_TYPE_GENERIC != sound_model->type) {
 #endif // SIMULATE_GSM_TEST_STUB
-    err = write_model(kw_buffer, kw_model_sz);
+    if (!check_uuid_equality(sound_model->uuid, stdev->sensor_model_uuid)) {
+        err = write_model(kw_buffer, kw_model_sz);
+    }
     if (-1 == err) {
         ALOGE("%s: Failed to load the keyword model error - %d (%s)", __func__, errno, strerror(errno));
         ret = errno;
