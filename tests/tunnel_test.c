@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
     int i = 0;
     bool valid_frame = true;
     int num_of_tunnels = 0;
-    int sync_tunnels = 0;
+    int timer_signal = 0;
     int tunnel_src[MAX_TUNNELS] = { 0 };
     int tunnel_mode[MAX_TUNNELS] = { 0 };
     int tunnel_encode[MAX_TUNNELS];
@@ -348,7 +348,7 @@ int main(int argc, char *argv[]) {
     int instance;
 
     if (argc < 5) {
-        ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>...", argv[0]);
+        ALOGE("USAGE: %s <instance number> <Number of tunnels> <Time in seconds> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>...", argv[0]);
         return -EINVAL;
     }
 
@@ -358,8 +358,8 @@ int main(int argc, char *argv[]) {
     num_of_tunnels = strtol(argv[2], NULL, 0);
     ALOGD("Number of tunnels %d", num_of_tunnels);
 
-    sync_tunnels= strtol(argv[3], NULL, 0);
-    ALOGD("Sync tunnels req %s", sync_tunnels?"yes":"no");
+    timer_signal= strtol(argv[3], NULL, 0);
+    ALOGD("tunnel out timer based req %d", timer_signal);
 
     if (argc != (num_of_tunnels * 3 + 4)) {
         ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>...", argv[0]);
@@ -387,12 +387,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (num_of_tunnels > 1 && sync_tunnels) {
-        // Mic tunneling is not being done or just one mic
-        // is enabled so no need of alignment
-        is_initial_align_reached = false;
-    }
-
     buf = malloc(BUF_SIZE * 2);
     if (NULL == buf) {
         ALOGE("Failed to allocate memory to read buffer");
@@ -406,6 +400,11 @@ int main(int argc, char *argv[]) {
     }
 
     signal(SIGINT, sigint_handler);
+
+    if (num_of_tunnels && timer_signal) {
+        signal(SIGALRM, sigint_handler);
+        alarm(timer_signal);
+    }
 
     unsigned short int tunnel_id;
     unsigned short int tunl_src;
@@ -509,21 +508,6 @@ read_again:
             ALOGD("Tunnel id %d timestamp %llu", tunnel_id, rft.timeStamp);
             tunnel_time_stamps[tunnel_id] = rft.timeStamp;
 
-            if (false == is_initial_align_reached) {
-                for (i = 0; i < num_of_tunnels; i++) {
-                    if (tunnel_id == 0) {
-                        continue;
-                    } else if (tunnel_time_stamps[tunnel_id] == tunnel_time_stamps[tunnel_id - 1]) {
-                        is_initial_align_reached = true;
-                    } else {
-                        is_initial_align_reached = false;
-                        ALOGE("Tunnel[%d] %llu Tunnel[%d] %llu", tunnel_id - 1, tunnel_time_stamps[tunnel_id - 1],
-                                                                 tunnel_id, tunnel_time_stamps[tunnel_id]);
-                        break;
-                    }
-                }
-            }
-
             // Skip the raf_frame_type
             buf_itr += sizeof(struct raf_frame_type);
             bytes_avail -= sizeof(struct raf_frame_type);
@@ -543,13 +527,11 @@ read_again:
                 } else if (VP_PARAM_TUNNEL_SRC == tunl_src) {
                     parse_param_data(out_fp[tunnel_id], (void*) buf_itr);
                 } else {
-                    if (true == is_initial_align_reached) {
-                          ALOGD("@@@Tunnel id %d encoding %d", tunnel_id, rft.format.encoding);
-                        if (TNL_ENC_AFLOAT == rft.format.encoding) {
-                            parse_audio_tunnel_data(out_fp[tunnel_id], buf_itr, rft.format.frameSizeInBytes);
-                        } else {
-                            fwrite(buf_itr, rft.format.frameSizeInBytes, 1, out_fp[tunnel_id]);
-                        }
+                    ALOGD("@@@Tunnel id %d encoding %d", tunnel_id, rft.format.encoding);
+                    if (TNL_ENC_AFLOAT == rft.format.encoding) {
+                        parse_audio_tunnel_data(out_fp[tunnel_id], buf_itr, rft.format.frameSizeInBytes);
+                    } else {
+                        fwrite(buf_itr, rft.format.frameSizeInBytes, 1, out_fp[tunnel_id]);
                     }
                 }
             }
