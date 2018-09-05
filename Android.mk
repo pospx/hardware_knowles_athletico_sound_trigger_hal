@@ -91,4 +91,16 @@ LOCAL_32_BIT_ONLY := true
 LOCAL_SHARED_LIBRARIES := liblog libcutils
 
 include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+
+LOCAL_PRELINK_MODULE := false
+LOCAL_MODULE := oslo_package_test
+LOCAL_SRC_FILES := ./tests/oslo_package_test.c
+LOCAL_32_BIT_ONLY := true
+LOCAL_SHARED_LIBRARIES := liblog \
+                          libcutils \
+                          libtinyalsa
+
+include $(BUILD_EXECUTABLE)
 endif
