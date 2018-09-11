@@ -48,6 +48,10 @@
 #define TNL_ENC_AFLOAT  1
 #define TNL_ENC_Q15     0xF
 
+#ifdef FILENAME_ASSIGN
+#define OUTPUT_FILE_FOLDER             "/data/data"
+#endif /* FILENAME_ASSIGN */
+
 struct raf_format_type {
     uint16_t frameSizeInBytes; /*!< Frame length in bytes */
     uint8_t encoding;   /*!< Encoding */
@@ -361,10 +365,40 @@ int main(int argc, char *argv[]) {
     timer_signal= strtol(argv[3], NULL, 0);
     ALOGD("tunnel out timer based req %d", timer_signal);
 
+#ifdef FILENAME_ASSIGN
+    char filename_str_format[256] = {0};
+    bool is_specified_name = false;
+    for (int i = 0; i < argc ; i++) {
+        if (strncmp(argv[i], "-f", sizeof(char)*2) == 0) {
+            if ((i+1) < argc) {
+                snprintf(filename_str_format, sizeof(filename_str_format), "%s", argv[i+1]);
+                ALOGE("specify a output file name %s, argc i = %d, argv[%d] = %s", filename_str_format, i, i+1, argv[i+1]);
+                is_specified_name = true;
+            }
+        }
+    }
+
+    if (is_specified_name) {
+        if (argc != (num_of_tunnels * 3 + 4 + 2)) {
+            ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>... [-f filename]", argv[0], __LINE__);
+            return -EINVAL;
+        }
+        else {
+            ALOGE("is_specified_name = TRUE");
+        }
+    } else {
+        if (argc != (num_of_tunnels * 3 + 4)) {
+            ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>...", argv[0],  __LINE__);
+            return -EINVAL;
+        }
+    }
+#else
     if (argc != (num_of_tunnels * 3 + 4)) {
         ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>...", argv[0]);
         return -EINVAL;
     }
+#endif /* FILENAME_ASSIGN */
+
 
     for (i = 0; i < num_of_tunnels; i++) {
         tunnel_src[i] = strtol(argv[i*3+4], NULL, 0);
@@ -493,6 +527,10 @@ read_again:
                         snprintf(filename, 256, "%s_%d.txt", VQ_CONFIDENCE_OUTPUT_FILE, instance);
                     } else if (VP_PARAM_TUNNEL_SRC == tunl_src) {
                         snprintf(filename, 256, "%s_%d.txt", VP_PARAM_DUMP_FILE, instance);
+#ifdef FILENAME_ASSIGN
+                    } else if (is_specified_name) {
+                        snprintf(filename, 256, "%s/%s", OUTPUT_FILE_FOLDER, filename_str_format);
+#endif /* FILENAME_ASSIGN */
                     } else {
                         snprintf(filename, 256, "%sid%d-src0x%x-enc0x%x_client%d.pcm", OUTPUT_FILE, tunnel_id, tunl_src, rft.format.encoding, instance);
                     }

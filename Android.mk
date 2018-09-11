@@ -67,6 +67,7 @@ LOCAL_SRC_FILES := ./tests/tunnel_test.c \
 		   ./tests/conversion_routines.c
 LOCAL_32_BIT_ONLY := true
 LOCAL_SHARED_LIBRARIES := liblog libcutils libtunnel
+LOCAL_CFLAGS += -DFILENAME_ASSIGN
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
