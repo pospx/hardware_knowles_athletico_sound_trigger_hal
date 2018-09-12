@@ -138,12 +138,13 @@ static inline bool isvalid_kw_option(uint8_t option)
 int start_cvq(void);
 int stop_cvq(void);
 int init_params();
-int write_model(unsigned char *data, int length);
+int write_model(unsigned char *data, int length, bool kw_type);
 int flush_model(void);
 int get_event(struct iaxxx_get_event *ge);
 int unload_all_models();
 int setup_mic_routes();
 int enable_mic_route(int enable);
 int set_sensor_route(bool enable);
+int set_ambient_audio_route(bool enable);
 
 #endif /* _CVQ_IOCTL_H */

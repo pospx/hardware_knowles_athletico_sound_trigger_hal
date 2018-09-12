@@ -18,12 +18,16 @@
 #define MAX_TUNNELS     (32)
 #define BUF_SIZE        (8192)
 #define CVQ_ENDPOINT    (IAXXX_SYSID_PLUGIN_1_OUT_EP_0)
+// TBD update ambient endpoint
+#define AMBIENT_ENDPOINT (IAXXX_SYSID_PLUGIN_4_OUT_EP_0)
 #define CVQ_TUNNEL_ID   (1)
 #define TNL_Q15         (0xF)
 
 #define UNPARSED_OUTPUT_FILE "/data/data/unparsed_output"
 // By defining this macros, dumps will be enabled at key points to help in debugging
 //#define ENABLE_DEBUG_DUMPS
+#define HOTWORD_MODEL (0)
+#define AMBIENT_MODEL (1)
 
 struct raf_format_type {
     uint16_t frameSizeInBytes; /* Frame length in bytes */
@@ -359,7 +363,7 @@ exit:
 
 
 __attribute__ ((visibility ("default")))
-long adnc_strm_open(bool enable_stripping, unsigned int kw_start_frame)
+long adnc_strm_open(bool enable_stripping, unsigned int kw_start_frame, int keyword_model_type)
 {
     int ret = 0, err;
     struct adnc_strm_device *adnc_strm_dev = NULL;
@@ -371,7 +375,10 @@ long adnc_strm_open(bool enable_stripping, unsigned int kw_start_frame)
         goto exit_on_error;
     }
 
-    adnc_strm_dev->end_point = CVQ_ENDPOINT;
+    if (HOTWORD_MODEL == keyword_model_type)
+        adnc_strm_dev->end_point = CVQ_ENDPOINT;
+    else
+        adnc_strm_dev->end_point = AMBIENT_ENDPOINT;
     adnc_strm_dev->idx = 0;
     adnc_strm_dev->mode = 0;
     adnc_strm_dev->encode = TNL_Q15;

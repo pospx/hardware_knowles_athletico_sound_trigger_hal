@@ -24,19 +24,22 @@
 
 static FILE *cvq_node;
 
-#define PLUGIN_SRC_ID 0x303F
-#define PLUGIN3_SRC_ID 0x30FF
+#define OK_GOOGLE_EVT_SRC_ID 0x303F //"SYSID_PLUGIN_0"
+#define AMBIENT_EVT_SRC_ID 0x317F  //"SYSID_PLUGIN_5"
+#define OSLO_EVT_SRC_ID 0x30FF //"SYSID_PLUGIN_3"
 
 #define DSP_VQ_PROCESS_MODE                     (0)
 #define DSP_VQ_RESET                            (4)
 
 #define CARD_NUM            (0)
 #define DEV_NODE            "/dev/iaxxx-odsp-celldrv"
-#define BUFFER_PACKAGE      "audience/iaxxx/BufferPackage.bin"
-#define BUFFER_CONFIG_VAL      "audience/iaxxx/BufferConfigVal.bin"
-#define BUFFER_CONFIG_OSLO_VAL      "audience/iaxxx/BufferConfigValOslo.bin"
-#define OK_GOOGLE_PACKAGE   "audience/iaxxx/OkGooglePackage.bin"
-#define SENSOR_PACKAGE   "audience/iaxxx/DummySensorPackage.bin"
+#define BUFFER_PACKAGE      "BufferPackage.bin"
+#define BUFFER_CONFIG_VAL      "BufferConfigVal.bin"
+#define BUFFER_CONFIG_OSLO_VAL      "BufferConfigValOslo.bin"
+#define BUFFER_CONFIG_AMBIENT_VAL      "BufferConfigValAmbient.bin"
+#define OK_GOOGLE_PACKAGE   "OkGooglePackage.bin"
+#define SOUND_TRIGGER_PACKAGE   "SoundTriggerPackage.bin"
+#define SENSOR_PACKAGE   "DummySensorPackage.bin"
 
 int start_cvq(void)
 {
@@ -58,10 +61,10 @@ int start_cvq(void)
         return err;
     }
 
-    err = ioctl(fileno(cvq_node), ODSP_START_RECOGNITION, (unsigned long) &kw_id);
-    if (-1 == err) {
-        printf("%s: ERROR: ODSP_START_RECOGNITION IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
-    }
+    //err = ioctl(fileno(cvq_node), ODSP_START_RECOGNITION, (unsigned long) &kw_id);
+    //if (-1 == err) {
+    //    printf("%s: ERROR: ODSP_START_RECOGNITION IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
+    //}
 
     ALOGD("-%s-", __func__);
     return err;
@@ -86,10 +89,10 @@ int stop_cvq(void)
         return err;
     }
 
-    err = ioctl(fileno(cvq_node), ODSP_STOP_RECOGNITION, (unsigned long) &kw_id);
-    if (-1 == err) {
-        printf("%s: ERROR: ODSP_STOP_RECOGNITION IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
-    }
+    //err = ioctl(fileno(cvq_node), ODSP_STOP_RECOGNITION, (unsigned long) &kw_id);
+    //if (-1 == err) {
+    //    printf("%s: ERROR: ODSP_STOP_RECOGNITION IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
+    //}
 
     ALOGD("-%s-", __func__);
     return err;
@@ -97,9 +100,6 @@ int stop_cvq(void)
 
 int init_params()
 {
-    struct iaxxx_set_event se;
-    struct iaxxx_evt_info ei;
-    int err = 0;
     ALOGD("+%s+", __func__);
     /* open the cvq node to send ioctl */
     if (NULL == cvq_node) {
@@ -110,46 +110,40 @@ int init_params()
         }
     }
 
-    // Set the events and params
-    se.inst_id           = 0;
-    se.event_enable_mask = 0x1;
-    se.block_id          = 1;
-    err = ioctl(fileno(cvq_node), ODSP_PLG_SET_EVENT, (unsigned long) &se);
-    if (-1 == err) {
-        ALOGE("%s: ERROR: ODSP_PLG_SET_EVENT IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
-        return err;
-    }
-
-    ALOGD("Registering for 1 event\n");
-
-    // Subscribe for events
-    ei.src_id       = PLUGIN_SRC_ID;
-    ei.event_id     = 0;    // 0 - Keyword detection
-    ei.dst_id       = IAXXX_SYSID_HOST;
-    ei.dst_opaque   = 0;
-    err = ioctl(fileno(cvq_node), ODSP_EVENT_SUBSCRIBE, (unsigned long) &ei);
-    if (-1 == err) {
-        ALOGE("%s: ERROR: ODSP_EVENT_SUBSCRIBE (for event_id %d, src_id %d) IOCTL failed with error %d(%s)",
-                    __func__, ei.event_id, ei.src_id, errno, strerror(errno));
-        return err;
-    }
-
-    return err;
+    ALOGD("-%s-", __func__);
+    return 0;
 }
 
-int write_model(unsigned char *data, int length)
+int write_model(unsigned char *data, int length, bool kw_type)
 {
     int ret;
     struct iaxxx_plugin_param_blk ppb;
+
     ALOGD("+%s+", __func__);
-    ppb.block_id = 1;
-    ppb.inst_id = 0;
-    ppb.param_size = length;
-    ppb.param_blk = (uintptr_t)data;
-    ppb.id = (uint32_t) 0;
+
+    if (kw_type) {
+        //kw_type:AMBIENT_KW_ID
+        ALOGD("+%s+ AMBIENT_KW_ID", __func__);
+        ppb.block_id = 1;
+        ppb.inst_id = 5;
+        ppb.param_size = length;
+        ppb.param_blk = (uintptr_t)data;
+        ppb.id = (uint32_t) 3;
+    } else {
+        ALOGD("+%s+ OK_GOOGLE_KW_ID", __func__);
+        //kw_type:OK_GOOGLE_KW_ID
+        ppb.block_id = 1;
+        ppb.inst_id = 0;
+        ppb.param_size = length;
+        ppb.param_blk = (uintptr_t)data;
+        ppb.id = (uint32_t) 1;
+    }
+
     ret = ioctl(fileno(cvq_node), ODSP_PLG_SET_PARAM_BLK, &ppb);
+
     if (ret < 0)
         ALOGE("err. Failed to load the keyword with error %s\n", strerror(errno));
+
     ALOGD("-%s-", __func__);
     return ret;
 }
@@ -295,6 +289,80 @@ int set_sensor_route(bool enable)
     return 0;
 }
 
+int set_ambient_audio_route(bool enable) {
+    struct mixer *mixer = open_mixer_ctl();
+    struct iaxxx_set_event se;
+    struct iaxxx_evt_info ei;
+    int err = 0;
+
+    if (NULL == mixer) {
+        ALOGE("%s: ERROR: Failed to open the mixer control", __func__);
+        return -1;
+    }
+
+    ALOGD("+%s+", __func__);
+    if (enable) {
+
+        /* check cvq node to send ioctl */
+        if (NULL == cvq_node) {
+                ALOGE("file %s is NULL\n", CVQ_NODE);
+                return -EIO;
+        }
+
+        // Set the events and params
+        se.inst_id           = 5;
+        se.event_enable_mask = 0x7;
+        se.block_id          = 1;
+        err = ioctl(fileno(cvq_node), ODSP_PLG_SET_EVENT, (unsigned long) &se);
+        if (-1 == err) {
+            ALOGE("%s: ERROR: ODSP_PLG_SET_EVENT IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
+            return err;
+        }
+
+        ALOGD("Registering for Ambient event\n");
+
+        // Subscribe for events
+        ei.src_id       = AMBIENT_EVT_SRC_ID;
+        ei.event_id     = 1;    // 1 - Keyword detection
+        ei.dst_id       = IAXXX_SYSID_HOST;
+        ei.dst_opaque   = 0;
+        err = ioctl(fileno(cvq_node), ODSP_EVENT_SUBSCRIBE, (unsigned long) &ei);
+        if (-1 == err) {
+            ALOGE("%s: ERROR: ODSP_EVENT_SUBSCRIBE (for event_id %d, src_id %d) IOCTL failed with error %d(%s)",
+                        __func__, ei.event_id, ei.src_id, errno, strerror(errno));
+            return err;
+        }
+
+        set_mixer_ctl_string(mixer, "Plgin5Ip Ep0 Conf", "RX0_ChanMgr");
+        set_mixer_ctl_string(mixer, "Plgin5Ip Ep1 Conf", "RX1_ChanMgr");
+        set_mixer_ctl_string(mixer, "Plgin5En", "Rx0Plgin5On");
+        set_mixer_ctl_val(mixer, "Plgin5Blk1En", 1);
+
+        // Buffer Plugin OP End point
+        set_mixer_ctl_string(mixer, "Plgin4Ip Ep0 Conf", "RX0_ChanMgr");
+        set_mixer_ctl_val(mixer, "Plgin4Blk1En", 1);
+        set_mixer_ctl_string(mixer, "Plgin4En", "Rx0Plgin4On");
+
+    } else {
+        set_mixer_ctl_val(mixer, "Plgin4Blk1En", 0);
+        set_mixer_ctl_val(mixer, "Plgin5Blk1En", 0);
+
+        ei.src_id       = AMBIENT_EVT_SRC_ID;
+        ei.event_id     = 1;
+        ei.dst_id       = IAXXX_SYSID_HOST;
+        ei.dst_opaque   = 0;
+        err = ioctl(fileno(cvq_node), ODSP_EVENT_UNSUBSCRIBE, (unsigned long) &ei);
+        if (-1 == err) {
+            ALOGE("%s: ERROR: ODSP_EVENT_UNSUBSCRIBE (for event_id %d, src_id %d) IOCTL failed with error %d(%s)",
+                                __func__, ei.event_id, ei.src_id, errno, strerror(errno));
+            return err;
+        }
+    }
+    close_mixer_ctl(mixer);
+    ALOGD("-%s-", __func__);
+    return 0;
+}
+
 int sensor_event_init_params()
 {
     struct iaxxx_set_event se;
@@ -316,7 +384,7 @@ int sensor_event_init_params()
     ALOGD("Registering for 3 sensor mode switch events\n");
 
     // Subscribe for events
-    ei.src_id       = PLUGIN3_SRC_ID;
+    ei.src_id       = OSLO_EVT_SRC_ID;
     ei.event_id     = 0;    // 0 - Mode switch to presence mode
     ei.dst_id       = IAXXX_SYSID_SCRIPT_MGR;
     ei.dst_opaque   = 0x1201;
@@ -328,7 +396,7 @@ int sensor_event_init_params()
     }
 
     // Subscribe for events
-    ei.src_id       = PLUGIN3_SRC_ID;
+    ei.src_id       = OSLO_EVT_SRC_ID;
     ei.event_id     = 1;    // 1 - Mode switch to detected mode.
     ei.dst_id       = IAXXX_SYSID_SCRIPT_MGR;
     ei.dst_opaque   = 0x1202;
@@ -340,7 +408,7 @@ int sensor_event_init_params()
     }
 
     // Subscribe for events
-    ei.src_id       = PLUGIN3_SRC_ID;
+    ei.src_id       = OSLO_EVT_SRC_ID;
     ei.event_id     = 2;    // 2 - Mode switch to max mode
     ei.dst_id       = IAXXX_SYSID_HOST;  // update this to HOST_1 for Customer
     ei.dst_opaque   = 0;
@@ -359,12 +427,14 @@ int setup_mic_routes()
     struct iaxxx_plugin_info pi;
     struct iaxxx_plugin_create_cfg pcc;
     struct iaxxx_pkg_mgmt_info pkg_info;
+    struct iaxxx_plugin_param pp;
     int err;
     uint32_t buffer_id;
     uint32_t ok_google_id;
+    uint32_t ambient_id;
     uint32_t sensor_pkg_id;
 
-    ALOGE("Entering setup_mic_routes");
+    ALOGD("Entering setup_mic_routes");
 
 	/* open the cvq node to send ioctl */
 	if (NULL == cvq_node) {
@@ -374,9 +444,9 @@ int setup_mic_routes()
             return -EIO;
         }
     }
-    /* OK google */
-    // Download packages
-    strcpy(pkg_info.pkg_name, OK_GOOGLE_PACKAGE);
+    /* SOUND_TRIGGER_PACKAGE */
+    // Download packages for ok google
+    strcpy(pkg_info.pkg_name, SOUND_TRIGGER_PACKAGE);
     pkg_info.pkg_id = 11;
     pkg_info.proc_id = 0;
     err = ioctl(fileno(cvq_node), ODSP_LOAD_PACKAGE, (unsigned long) &pkg_info);
@@ -384,9 +454,20 @@ int setup_mic_routes()
         ALOGE("%s: ERROR: ODSP_LOAD_PACKAGE failed %d(%s)", __func__, errno, strerror(errno));
         return err;
     }
-    ALOGE("%s: Ok google ODSP_LOAD_PACKAGE %x\n", __func__, pkg_info.proc_id);
+    ALOGD("%s: Ok google ODSP_LOAD_PACKAGE %x\n", __func__, pkg_info.proc_id);
     ok_google_id = pkg_info.proc_id;
 
+    // Download packages for ambient audio
+    strcpy(pkg_info.pkg_name, SOUND_TRIGGER_PACKAGE);
+    pkg_info.pkg_id = 12;
+    pkg_info.proc_id = 0;
+    err = ioctl(fileno(cvq_node), ODSP_LOAD_PACKAGE, (unsigned long) &pkg_info);
+    if (-1 == err) {
+        ALOGE("%s: ERROR: ODSP_LOAD_PACKAGE failed %d(%s)", __func__, errno, strerror(errno));
+        return err;
+    }
+    ALOGD("%s: ambient ODSP_LOAD_PACKAGE %x\n", __func__, pkg_info.proc_id);
+    ambient_id = pkg_info.proc_id;
 
     strcpy(pkg_info.pkg_name, BUFFER_PACKAGE);
     pkg_info.pkg_id = 4;
@@ -396,7 +477,7 @@ int setup_mic_routes()
         ALOGE("%s: ERROR: Buffer ODSP_LOAD_PACKAGE failed %d(%s)", __func__, errno, strerror(errno));
         return err;
     }
-    ALOGE("%s: Buffer ODSP_LOAD_PACKAGE %x\n", __func__, pkg_info.proc_id);
+    ALOGD("%s: Buffer ODSP_LOAD_PACKAGE %x\n", __func__, pkg_info.proc_id);
     buffer_id = pkg_info.proc_id;
 
     /* Create plugins */
@@ -406,7 +487,7 @@ int setup_mic_routes()
     pcc.cfg_size = 12;
     pcc.cfg_val = 0;
 
-    ALOGE("%s: 1 Configuration size is %u", __func__, pcc.cfg_size);
+    ALOGD("%s: hot word buffer Configuration size is %u", __func__, pcc.cfg_size);
     err = ioctl(fileno(cvq_node), ODSP_PLG_SET_CREATE_CFG, (unsigned long) &pcc);
     if (-1 == err) {
         ALOGE("%s: ERROR: ODSP_PLG_SET_CREATE_CFG IOCTL failed to set create config %d(%s)", __func__, errno, strerror(errno));
@@ -433,7 +514,7 @@ int setup_mic_routes()
     pi.priority = BUFFER_PRIORITY;
     err = ioctl(fileno(cvq_node), ODSP_PLG_CREATE, (unsigned long) &pi);
     if (-1 == err) {
-        ALOGE("%s: ERROR: ODSP_PLG_CREATE IOCTL failed to createok google Plugin with error %d(%s)", __func__, errno, strerror(errno));
+        ALOGE("%s: ERROR: ODSP_PLG_CREATE IOCTL failed to create ok google Plugin with error %d(%s)", __func__, errno, strerror(errno));
         return err;
     }
 
@@ -447,7 +528,7 @@ int setup_mic_routes()
         ALOGE("%s: ERROR: SENSOR ODSP_LOAD_PACKAGE failed %d(%s)", __func__, errno, strerror(errno));
         return err;
     }
-    ALOGE("%s: SENSOR ODSP_LOAD_PACKAGE %x\n", __func__, pkg_info.proc_id);
+    ALOGD("%s: SENSOR ODSP_LOAD_PACKAGE %x\n", __func__, pkg_info.proc_id);
     sensor_pkg_id = pkg_info.proc_id;
 
     /* TODO Need to have a check if buffer package is not loaded then we have to load it here */
@@ -459,7 +540,7 @@ int setup_mic_routes()
     pcc.cfg_size = 12;
     pcc.cfg_val = 0;
 
-    ALOGE("%s: 1 Configuration size is %u", __func__, pcc.cfg_size);
+    ALOGD("%s: Oslo Buffer Configuration size is %u", __func__, pcc.cfg_size);
     err = ioctl(fileno(cvq_node), ODSP_PLG_SET_CREATE_CFG, (unsigned long) &pcc);
     if (-1 == err) {
         ALOGE("%s: ERROR: ODSP_PLG_SET_CREATE_CFG IOCTL failed to set create config %d(%s)", __func__, errno, strerror(errno));
@@ -497,21 +578,112 @@ int setup_mic_routes()
     }
     /* SENSOR MANAGER ROUTE END */
 
+    /* Ambient 10 sec Ulaw buffer plugin */
+    /* TODO Need to have a check if buffer package is not loaded then we have to load it here */
+    /* if buffer plugin Loaded */
+    /* Create plugins */
+    strcpy(pcc.file_name, BUFFER_CONFIG_AMBIENT_VAL);
+    pcc.inst_id = 4;
+    pcc.block_id = 1;
+    pcc.cfg_size = 12;
+    pcc.cfg_val = 0;
+
+    ALOGE("%s: Ambient Buffer Configuration size is %u", __func__, pcc.cfg_size);
+    err = ioctl(fileno(cvq_node), ODSP_PLG_SET_CREATE_CFG, (unsigned long) &pcc);
+    if (-1 == err) {
+        ALOGE("%s: ERROR: ODSP_PLG_SET_CREATE_CFG IOCTL failed to set create config %d(%s)", __func__, errno, strerror(errno));
+        return err;
+    }
+
+    // Create Buffer plugin
+    pi.plg_idx  = 0;
+    pi.pkg_id = buffer_id;
+    pi.block_id = 1;
+    pi.inst_id  = 4;
+    pi.priority = BUFFER_PRIORITY;
+    err = ioctl(fileno(cvq_node), ODSP_PLG_CREATE, (unsigned long) &pi);
+    if (-1 == err) {
+        ALOGE("%s: ERROR: ODSP_PLG_CREATE IOCTL failed to create Buffer Plugin with error %d(%s)", __func__, errno, strerror(errno));
+        return err;
+    }
+
+    // Create Ambient plugin
+    pi.plg_idx  = 0;
+    pi.pkg_id = ambient_id;
+    pi.block_id = 1;
+    pi.inst_id  = 5;
+    pi.priority = BUFFER_PRIORITY;
+    err = ioctl(fileno(cvq_node), ODSP_PLG_CREATE, (unsigned long) &pi);
+    if (-1 == err) {
+        ALOGE("%s: ERROR: ODSP_PLG_CREATE IOCTL failed to create Ambient Plugin with error %d(%s)", __func__, errno, strerror(errno));
+        return err;
+    }
+    ALOGE("%s: set param for hotword", __func__);
+    pp.inst_id      = 0;
+    pp.block_id     = 1;
+    pp.param_id     = 0;
+    pp.param_val    = 0;
+    err = ioctl(fileno(cvq_node), ODSP_PLG_SET_PARAM, (unsigned long) &pp);
+    if (-1 == err) {
+        ALOGE("%s: ERROR: ODSP_PLG_SET_PARAM IOCTL failed with error %d(%s) for Ok google set param", __func__, errno, strerror(errno));
+    }
+    ALOGE("%s: set param for ambient", __func__);
+    pp.inst_id      = 5;
+    pp.block_id     = 1;
+    pp.param_id     = 0;
+    pp.param_val    = 0;
+    err = ioctl(fileno(cvq_node), ODSP_PLG_SET_PARAM, (unsigned long) &pp);
+    if (-1 == err) {
+        ALOGE("%s: ERROR: ODSP_PLG_SET_PARAM IOCTL failed with error %d(%s) for Ambient set param", __func__, errno, strerror(errno));
+    }
     return 0;
 }
 
 int enable_mic_route(int enable)
 {
     struct mixer *mixer = open_mixer_ctl();
+    struct iaxxx_set_event se;
+    struct iaxxx_evt_info ei;
+    int err = 0;
 
      if (NULL == mixer) {
         ALOGE("%s: ERROR: Failed to open the mixer control", __func__);
         return -1;
     }
-    ALOGE("Entering enable_mic_route %d ", enable);
+    ALOGD("Entering enable_mic_route %d ", enable);
 
     if (enable)
     {
+        /* check cvq node to send ioctl */
+        if (NULL == cvq_node) {
+                ALOGE("file %s is NULL\n", CVQ_NODE);
+                return -EIO;
+        }
+
+        // Set the events and params
+        se.inst_id           = 0;
+        se.event_enable_mask = 0x7;
+        se.block_id          = 1;
+        err = ioctl(fileno(cvq_node), ODSP_PLG_SET_EVENT, (unsigned long) &se);
+        if (-1 == err) {
+            ALOGE("%s: ERROR: ODSP_PLG_SET_EVENT IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
+            return err;
+        }
+
+        ALOGD("Registering for ok google event\n");
+
+        // Subscribe for events
+        ei.src_id       = OK_GOOGLE_EVT_SRC_ID;
+        ei.event_id     = 0;    // 0 - Keyword detection
+        ei.dst_id       = IAXXX_SYSID_HOST;
+        ei.dst_opaque   = 0;
+        err = ioctl(fileno(cvq_node), ODSP_EVENT_SUBSCRIBE, (unsigned long) &ei);
+        if (-1 == err) {
+            ALOGE("%s: ERROR: ODSP_EVENT_SUBSCRIBE (for event_id %d, src_id %d) IOCTL failed with error %d(%s)",
+                        __func__, ei.event_id, ei.src_id, errno, strerror(errno));
+            return err;
+        }
+
         // Setup the PDM port config
         set_mixer_ctl_val(mixer, PORTB_MICBIAS, 1);
         set_mixer_ctl_val(mixer, PORTC_MICBIAS, 1);
@@ -581,6 +753,17 @@ int enable_mic_route(int enable)
         set_mixer_ctl_val(mixer, PDM_HOS, 0);
         set_mixer_ctl_val(mixer, PORTC_MICBIAS, 0);
         set_mixer_ctl_val(mixer, PORTB_MICBIAS, 0);
+
+        ei.src_id       = OK_GOOGLE_EVT_SRC_ID;
+        ei.event_id     = 0;
+        ei.dst_id       = IAXXX_SYSID_HOST;
+        ei.dst_opaque   = 0;
+        err = ioctl(fileno(cvq_node), ODSP_EVENT_UNSUBSCRIBE, (unsigned long) &ei);
+        if (-1 == err) {
+            ALOGE("%s: ERROR: ODSP_EVENT_UNSUBSCRIBE (for event_id %d, src_id %d) IOCTL failed with error %d(%s)",
+                                __func__, ei.event_id, ei.src_id, errno, strerror(errno));
+            return err;
+        }
     }
 
     close_mixer_ctl(mixer);

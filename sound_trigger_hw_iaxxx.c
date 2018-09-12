@@ -53,7 +53,8 @@
 
 #define UEVENT_MSG_LEN              (1024)
 
-#define EVENT_ID_KW_ID              (0)
+#define OK_GOOGLE_KW_ID              (0)
+#define AMBIENT_KW_ID              (1)
 
 #define IAXXX_VQ_EVENT_STR          "IAXXX_VQ_EVENT"
 #define IAXXX_RECOVERY_EVENT_STR    "IAXXX_RECOVERY_EVENT"
@@ -65,6 +66,10 @@
 #endif
 
 #define SENSOR_MANAGER_MODEL "5c0c296d-204c-4c2b-9f85-e50746caf914"
+#define AMBIENT_AUDIO_MODEL "6ac81359-2dc2-4fea-a0a0-bd378ed6da4f"
+
+#define HOTWORD_MODEL (0)
+#define AMBIENT_MODEL (1)
 
 // Define this macro to enable test stub to simulate the Generic Sound Model
 // form the SoundTrigger HAL.
@@ -118,7 +123,7 @@ struct knowles_sound_trigger_device {
     // Information about streaming
     int is_streaming;
     void *adnc_cvq_strm_lib;
-    int    (*adnc_strm_open)(bool, int);
+    int    (*adnc_strm_open)(bool, int, int);
     size_t (*adnc_strm_read)(long, void*, size_t);
     int    (*adnc_strm_close)(long);
     long adnc_strm_handle;
@@ -127,6 +132,9 @@ struct knowles_sound_trigger_device {
 #endif
 
     sound_trigger_uuid_t sensor_model_uuid;
+    sound_trigger_uuid_t ambient_model_uuid;
+
+    int last_detected_model_type;
 };
 
 // Since there's only ever one sound_trigger_device, keep it as a global so that other people can
@@ -294,7 +302,7 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
     // Download all the keyword models files that were previously loaded
     for (i = 0; i < MAX_MODELS; i++) {
         if (true == stdev->models[i].is_loaded) {
-            err = write_model(stdev->models[i].data, stdev->models[i].data_sz);
+            err = write_model(stdev->models[i].data, stdev->models[i].data_sz, stdev->models[i].kw_id);
             if (-1 == err) {
                 ALOGE("%s: Failed to load the keyword model error - %d (%s)",
                                             __func__, errno, strerror(errno));
@@ -450,9 +458,15 @@ static void *callback_thread_loop(void *context)
 
                     err = get_event(&ge);
                     if (0 == err) {
-                        if (EVENT_ID_KW_ID == ge.event_id) {
-                            ALOGD("Eventid received is EVENT_ID_KW_ID %d", ge.data);
-                            kwid = ge.data;
+                        if (OK_GOOGLE_KW_ID == ge.event_id) {
+                            ALOGD("Eventid received is OK_GOOGLE_KW_ID %d", OK_GOOGLE_KW_ID);
+                            kwid = OK_GOOGLE_KW_ID;
+                            stdev->last_detected_model_type = HOTWORD_MODEL;
+                            break;
+                        } else if (AMBIENT_KW_ID == ge.event_id) {
+                            ALOGD("Eventid received is AMBIENT_KW_ID %d", AMBIENT_KW_ID);
+                            kwid = AMBIENT_KW_ID;
+                            stdev->last_detected_model_type = AMBIENT_MODEL;
                             break;
                         } else {
                             ALOGE("Unknown event id received, ignoring %d", ge.event_id);
@@ -471,12 +485,10 @@ static void *callback_thread_loop(void *context)
                 i += strlen(msg + i) + 1;
             }
 
-            if (EVENT_ID_KW_ID == ge.event_id) {
+            if (OK_GOOGLE_KW_ID == ge.event_id ||
+                AMBIENT_KW_ID == ge.event_id) {
                 ALOGE("%s: Keyword ID %d", __func__, kwid);
                 int idx = find_handle_for_kw_id(stdev, kwid);
-                // TODO: Fix me!! remove this hardcoding
-                idx = 0;
-                ALOGE("The handle has been fixed to 0");
 
                 if (idx < MAX_MODELS) {
                     if (SOUND_MODEL_TYPE_KEYPHRASE == stdev->models[idx].type) {
@@ -656,25 +668,36 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
         stdev->models[i].data_sz = kw_model_sz;
     }
 
-#ifdef SIMULATE_GSM_TEST_STUB
-    if (SOUND_MODEL_TYPE_GENERIC != sound_model->type) {
-#endif // SIMULATE_GSM_TEST_STUB
-    if (!check_uuid_equality(sound_model->uuid, stdev->sensor_model_uuid)) {
-        err = write_model(kw_buffer, kw_model_sz);
-    }
-    if (-1 == err) {
-        ALOGE("%s: Failed to load the keyword model error - %d (%s)", __func__, errno, strerror(errno));
-        ret = errno;
-        if (stdev->models[i].data) {
-            free(stdev->models[i].data);
-            stdev->models[i].data = NULL;
-            stdev->models[i].data_sz = 0;
+    if (SOUND_MODEL_TYPE_KEYPHRASE == sound_model->type ||
+        true == check_uuid_equality(sound_model->uuid, stdev->ambient_model_uuid)) {
+        // Send the keyword model to the chip only for hotword and ambient audio
+        if (SOUND_MODEL_TYPE_KEYPHRASE == sound_model->type) {
+            err = write_model(kw_buffer, kw_model_sz, OK_GOOGLE_KW_ID);
+            stdev->models[i].kw_id = OK_GOOGLE_KW_ID;
         }
-        goto exit;
+        else if (true == check_uuid_equality(sound_model->uuid, stdev->ambient_model_uuid)) {
+            err = write_model(kw_buffer, kw_model_sz, AMBIENT_KW_ID);
+            stdev->models[i].kw_id = AMBIENT_KW_ID;
+        }
+        if (-1 == err) {
+            ALOGE("%s: Failed to load the keyword model error - %d (%s)", __func__, errno, strerror(errno));
+            ret = errno;
+            if (stdev->models[i].data) {
+                free(stdev->models[i].data);
+                stdev->models[i].data = NULL;
+                stdev->models[i].data_sz = 0;
+            }
+            goto exit;
+        }
+    } else if (SOUND_MODEL_TYPE_GENERIC == sound_model->type &&
+               !check_uuid_equality(sound_model->uuid, stdev->sensor_model_uuid)) {
+        /*
+         * [TODO]Temp for Sound Trigger Test ApK verify.
+         *       Will remove in the future.
+         */
+        err = write_model(kw_buffer, kw_model_sz, OK_GOOGLE_KW_ID);
+        stdev->models[i].kw_id = OK_GOOGLE_KW_ID;
     }
-#ifdef SIMULATE_GSM_TEST_STUB
-    }
-#endif // SIMULATE_GSM_TEST_STUB
 
     stdev->models[i].is_loaded = true;
 
@@ -767,6 +790,8 @@ static int stdev_start_recognition(const struct sound_trigger_hw_device *dev,
 
     if (check_uuid_equality(model->uuid, stdev->sensor_model_uuid)) {
         set_sensor_route(true);
+    } else if (check_uuid_equality(model->uuid, stdev->ambient_model_uuid)) {
+        set_ambient_audio_route(true);
     } else {
 #ifdef SIMULATE_GSM_TEST_STUB
         if (SOUND_MODEL_TYPE_GENERIC != model->type) {
@@ -812,6 +837,8 @@ static int stdev_stop_recognition(const struct sound_trigger_hw_device *dev,
 
     if (check_uuid_equality(model->uuid, stdev->sensor_model_uuid)) {
         set_sensor_route(false);
+    } else if (check_uuid_equality(model->uuid, stdev->ambient_model_uuid)) {
+        set_ambient_audio_route(false);
     } else {
 #ifdef SIMULATE_GSM_TEST_STUB
         if (SOUND_MODEL_TYPE_GENERIC != model->type) {
@@ -877,7 +904,8 @@ int stdev_open_for_streaming()
             ALOGE("%s: Error adnc streaming not supported", __func__);
         } else {
             bool keyword_stripping_enabled = false;
-            stdev->adnc_strm_handle = stdev->adnc_strm_open(keyword_stripping_enabled, 0);
+            stdev->adnc_strm_handle = stdev->adnc_strm_open(keyword_stripping_enabled, 0,
+                                                            stdev->last_detected_model_type);
             if (stdev->adnc_strm_handle) {
                 ALOGD("Successfully opened adnc streaming");
                 stdev->is_streaming = true;
@@ -977,7 +1005,7 @@ static int open_streaming_lib(struct knowles_sound_trigger_device *stdev)
             ALOGV("%s: DLOPEN successful for %s", __func__, ADNC_STRM_LIBRARY_PATH);
             stdev->adnc_strm_handle = 0;
             stdev->adnc_strm_open =
-                (int (*)(bool, int))dlsym(stdev->adnc_cvq_strm_lib,
+                (int (*)(bool, int, int))dlsym(stdev->adnc_cvq_strm_lib,
                 "adnc_strm_open");
             stdev->adnc_strm_read =
                 (size_t (*)(long, void *, size_t))dlsym(stdev->adnc_cvq_strm_lib,
@@ -1049,6 +1077,7 @@ static int stdev_open(const hw_module_t *module, const char *name,
 #endif // SIMULATE_GSM_TEST_STUB
 
     str_to_uuid(SENSOR_MANAGER_MODEL, &stdev->sensor_model_uuid);
+    str_to_uuid(AMBIENT_AUDIO_MODEL, &stdev->ambient_model_uuid);
 
     *device = &stdev->device.common; /* same address as stdev */
 
