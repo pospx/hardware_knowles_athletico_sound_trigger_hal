@@ -1082,16 +1082,25 @@ static int stdev_open(const hw_module_t *module, const char *name,
     *device = &stdev->device.common; /* same address as stdev */
 
     ALOGD("%s: Wait for Firmware download to be completed", __func__);
+    /* [TODO] Temp workaround for different hw interface
+     * we will add a mechanism to handle that instead hard-code */
     for(int max_attempts = 0; max_attempts < 300; max_attempts++) {
         struct stat ready_stat;
-        const char *ready_path = "/sys/bus/spi/devices/spi1.0/iaxxx/fw_dl_complete";
-        ALOGD("%s: Checking for %s", __func__, ready_path);
-        int ready_result = stat(ready_path, &ready_stat);
-        if (0 == ready_result) {
-            ALOGD("%s: Found %s", __func__, ready_path);
+        const char *ready_path1 = "/sys/bus/spi/devices/spi1.0/iaxxx/fw_dl_complete";
+        const char *ready_path2 = "/sys/bus/spi/devices/spi2.0/iaxxx/fw_dl_complete";
+        const char *ready_path3 = "/sys/bus/spi/devices/spi3.0/iaxxx/fw_dl_complete";
+        const char *ready_path4 = "/sys/bus/spi/devices/spi4.0/iaxxx/fw_dl_complete";
+
+        int ready_result1 = stat(ready_path1, &ready_stat);
+        int ready_result2 = stat(ready_path2, &ready_stat);
+        int ready_result3 = stat(ready_path3, &ready_stat);
+        int ready_result4 = stat(ready_path4, &ready_stat);
+
+        if (0 == ready_result1 || 0 == ready_result2 || 0 == ready_result3 || 0 == ready_result4) {
+            ALOGD("%s: Found", __func__);
             break;
         } else {
-            ALOGD("%s: Didn't find %s, sleeping for one sec", __func__, ready_path);
+            ALOGD("%s: Didn't find fw_dl_complete, sleeping for one sec", __func__);
             sleep(1);
         }
     }
