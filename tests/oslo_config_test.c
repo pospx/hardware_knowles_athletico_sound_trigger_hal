@@ -68,10 +68,13 @@ typedef enum
     OSLO_CONFIG_PRESENCE,
     OSLO_CONFIG_CONTINUOUS,
     OSLO_CONFIG_PRESENCE_SLOW,
+    OSLO_CONFIG_FACTORY_PRESENCE,
+    OSLO_CONFIG_FACTORY_REACH,
 
     /* oslo control - restart oslo when settings change */
     OSLO_CONTROL_RESTART = OSLO_CONTROL_START_INDEX,
     OSLO_CONTROL_STRIP_HEADERS,
+    OSLO_CONTROL_SLPI_INT,
 
     /* oslo settings */
     OSLO_PARAM_REQUEST_RATE = OSLO_SETTING_START_INDEX,
@@ -142,8 +145,11 @@ static const oslo_settings_t oslo_settings[] =
     {OSLO_CONFIG_PRESENCE,                                  "config_presence"},
     {OSLO_CONFIG_CONTINUOUS,                                "config_continuous"},
     {OSLO_CONFIG_PRESENCE_SLOW,                             "config_presence_slow"},
+    {OSLO_CONFIG_FACTORY_PRESENCE,                          "config_factory_presence"},
+    {OSLO_CONFIG_FACTORY_REACH,                             "config_factory_reach"},
     {OSLO_CONTROL_RESTART,                                  "oslo_control_restart"},
     {OSLO_CONTROL_STRIP_HEADERS,                            "oslo_control_strip_headers"},
+    {OSLO_CONTROL_SLPI_INT,                                 "oslo_control_slpi_interrupt"},
     {OSLO_PARAM_REQUEST_RATE,                               "param_request_rate"},
     {OSLO_PARAM_REQUEST_ANTENNA_MASK,                       "param_request_antenna_mask"},
     {OSLO_PARAM_TX_POWER,                                   "param_tx_power"},
