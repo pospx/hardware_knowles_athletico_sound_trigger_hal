@@ -34,7 +34,7 @@
 
 #define MAX_TUNNELS 32
 #define TUNNELS_THAT_NEED_SYNC 10
-#define BUF_SIZE 8192
+#define BUF_SIZE 32768
 #define DOA_OUTPUT_FILE             "/data/data/doa_tunnel_output"
 #define VQ_CONFIDENCE_OUTPUT_FILE   "/data/data/vq_conf_tunnel_output"
 #define OUTPUT_FILE                 "/data/data/tnl_op"
@@ -466,7 +466,7 @@ read_again:
                                            (void *)((unsigned char *)buf + bytes_rem),
                                            BUF_SIZE);
         if (bytes_avail <= 0) {
-            ALOGE("Failed to read data from the tunnel");
+            ALOGE("Failed to read data from the tunnel :%d", bytes_avail);
             break;
         }
 
