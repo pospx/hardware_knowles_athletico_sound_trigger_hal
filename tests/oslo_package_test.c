@@ -11,7 +11,6 @@
 #include <cutils/log.h>
 
 #include "iaxxx-odsp.h"
-#include "ia_constants.h"
 #include "iaxxx-system-identifiers.h"
 #include <tinyalsa/asoundlib.h>
 
@@ -198,7 +197,7 @@ int main(int argc, char *argv[])
         pi.pkg_id = buffer_id;
         pi.block_id = 1;
         pi.inst_id  = 2;
-        pi.priority = BUFFER_PRIORITY;
+        pi.priority = 1;
         err = ioctl(fileno(odsp_node), ODSP_PLG_CREATE, (unsigned long)&pi);
         if (err) {
             printf("%s: ERROR: ODSP_PLG_CREATE IOCTL failed to create Buffer Plugin with error %d(%s)\n", __func__, errno, strerror(errno));
@@ -211,7 +210,7 @@ int main(int argc, char *argv[])
         pi.pkg_id = sensor_pkg_id;
         pi.block_id = 1;
         pi.inst_id  = 3;
-        pi.priority = BUFFER_PRIORITY;
+        pi.priority = 1;
         err = ioctl(fileno(odsp_node), ODSP_PLG_CREATE, (unsigned long)&pi);
         if (err) {
             printf("%s: ERROR: ODSP_PLG_CREATE IOCTL failed to create sensor Plugin with error %d(%s)\n", __func__, errno, strerror(errno));

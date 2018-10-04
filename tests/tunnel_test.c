@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2018 Knowles Electronics
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,42 +27,15 @@
 #include "tunnel.h"
 #include "conversion_routines.h"
 #include "iaxxx-system-identifiers.h"
+#include "iaxxx-tunnel-intf.h"
 
-/*
- * To dump 4 MIC data, the source end points are
- * 0x4020 0x40A0 0x4120 0x41A0
- */
-
-#define DOA_TUNNEL_SRC (IAXXX_SYSID_PLUGIN_1_OUT_EP_2)
-                        // Source end point for DOA meta data
-#define VQ_TUNNEL_SRC (IAXXX_SYSID_PLUGIN_0_OUT_EP_0)
-                        // Source end point for VQ confidence meta data
-#define VP_PARAM_TUNNEL_SRC (IAXXX_SYSID_PLUGIN_1_OUT_EP_3)
-                         // Source end point for VP Parameter data
-
-#define MIC1_TUNNEL_SRC  (IAXXX_SYSID_CHANNEL_RX_0_EP_0)
-#define MIC2_TUNNEL_SRC  (IAXXX_SYSID_CHANNEL_RX_2_EP_0)
-#define MIC3_TUNNEL_SRC  (IAXXX_SYSID_CHANNEL_RX_4_EP_0)
-#define MIC4_TUNNEL_SRC  (IAXXX_SYSID_CHANNEL_RX_6_EP_0)
-#define AEC_REF1_TUNNEL_SRC (IAXXX_SYSID_CHANNEL_RX_8_EP_0)
-#define AEC_REF2_TUNNEL_SRC (IAXXX_SYSID_CHANNEL_RX_9_EP_0)
 
 
 #define MAX_TUNNELS 32
 #define TUNNELS_THAT_NEED_SYNC 10
 #define BUF_SIZE 32768
-#define DOA_OUTPUT_FILE             "/data/data/doa_tunnel_output"
-#define VQ_CONFIDENCE_OUTPUT_FILE   "/data/data/vq_conf_tunnel_output"
 #define OUTPUT_FILE                 "/data/data/tnl_op"
 #define UNPARSED_OUTPUT_FILE        "/data/data/unparsed_output"
-#define VP_PARAM_DUMP_FILE          "/data/data/param_dump"
-
-#define SALIENCE    "SALIENCE"
-#define BEARING     "BEARING"
-#define TNL_SYNC_MODE  0
-#define TNL_ASYNC_MODE	1
-#define TNL_ENC_AFLOAT  1
-#define TNL_ENC_Q15     0xF
 
 #ifdef FILENAME_ASSIGN
 #define OUTPUT_FILE_FOLDER             "/data/data"
@@ -74,210 +63,6 @@ void sigint_handler(int sig __unused) {
     capturing = 0;
 }
 
-/*
- *                  Buf idx                                                      Content
- * 0                                                                sdeNumDirections (1x1)
- * [1, 4, 7,... (sdeNumDirections *3-2)]                            Bearing/Direction of Dominant Sources (sdeNumDirections x1)
- * [2, 5, 8,... (sdeNumDirections *3-1)]                            Salience for the Dominant Sources (sdeNumDirections x1)
- * [3, 6, 9,... (sdeNumDirections *3)]                              RMS Estimate: Level information per-source in dB FS
- *
- * [3*sdeNumDirections +1 : 3*sdeNumDirections +1+sdeNumAngles]     SDE Frame Response (24x1)
- * [2*sdeNumDirections +1+sdeNumAngles+1]                           Source Class (1x1)
- *                                                                      0 - Ambient / Quiet
- *                                                                      1 - Speech
- *                                                                      2 - Echo
- *                                                                      3 - Music
- *                                                                      4 - Wanted / Un-wanted Noises
- * [(3*sdeNumDirections)+sdeNumAngles+2 :                           SourceClassConfidence (4x1)
- *          (3*sdeNumDirections)+sdeNumAngles+5 ]
- * [(3*sdeNumDirections)+sdeNumAngles+6 ]                           SNR Estimate in dB. And estimate of Signal to Noise Ratio (SNR)
- *                                                                  of the input signal, on a per frame basis
- * [ (3*sdeNumDirections)+nAngles+7 ]                               rxVad. Status of VAD on AEC Ref
- *                                                                      0 - OFF
- *                                                                      1 - ON
- * [ (3*sdeNumDirections)+nAngles+8:                                VP param ids and param vals
- *     (3*sdeNumDirections)+nAngles+22 ]
- */
-void parse_doa_meta_data(FILE *out_fp, unsigned char *buf_itr) {
-    float bearing[3], salience[3], rms_estimate[3], num_directions, source_class;
-    // Frame response is for every 15 degrees, for 360 degrees we will have 24 values
-    const int sde_frame_response = 24;
-    const int num_of_src_class_conf = 4;
-    const int num_of_vp_params = 15;
-    float frame_response[sde_frame_response];
-    float src_class_conf[num_of_src_class_conf];
-    float snr_estimate_in_db;
-    float rx_vad;
-    int i;
-    float param_ids[num_of_vp_params];
-    float param_vals[num_of_vp_params];
-
-    if (NULL == buf_itr || NULL == out_fp) {
-        ALOGE("%s: Buffer or file pointer is NULL", __func__);
-        return;
-    }
-
-    kst_float_to_IEEE_float((void *)&num_directions, buf_itr);
-    buf_itr += 4;
-
-    for (i = 0; i < num_directions; i++) {
-        kst_float_to_IEEE_float((void *)&bearing[i], buf_itr);
-        buf_itr += 4;
-
-        kst_float_to_IEEE_float((void *)&salience[i], buf_itr);
-        buf_itr +=4;
-
-        kst_float_to_IEEE_float((void *)&rms_estimate[i], buf_itr);
-        buf_itr +=4;
-    }
-
-    for (i = 0; i < sde_frame_response; i++) {
-        kst_float_to_IEEE_float((void *)&frame_response[i], buf_itr);
-        buf_itr += 4;
-    }
-
-    kst_float_to_IEEE_float((void *)&source_class, buf_itr);
-    buf_itr += 4;
-
-    for (i = 0; i < num_of_src_class_conf; i++) {
-        kst_float_to_IEEE_float((void *)&src_class_conf[i], buf_itr);
-        buf_itr += 4;
-    }
-
-    kst_float_to_IEEE_float((void *)&snr_estimate_in_db, buf_itr);
-    buf_itr += 4;
-
-    kst_float_to_IEEE_float((void *)&rx_vad, buf_itr);
-    buf_itr += 4;
-
-    for (i = 0; i < num_of_vp_params; i++) {
-        kst_float_to_IEEE_float((void *)&param_ids[i], buf_itr);
-        buf_itr += 4;
-
-        kst_float_to_IEEE_float((void *)&param_vals[i], buf_itr);
-        buf_itr += 4;
-    }
-
-    for (i = 0; i < num_directions; i++) {
-        fprintf(out_fp, " bearing %d = %f:", i, bearing[i]);
-    }
-
-    for (i = 0; i < num_directions; i++) {
-        fprintf(out_fp, " Salience  %d = %f:", i, salience[i]);
-    }
-
-    for (i = 0; i < num_directions; i++) {
-        fprintf(out_fp, " RMS Estimate  %d = %f:", i, rms_estimate[i]);
-    }
-
-    for (i = 0; i < sde_frame_response; i++) {
-        fprintf(out_fp, " SDE Frame Response %d = %f:", i, frame_response[i]);
-    }
-
-    fprintf(out_fp, " Source Class = %f:", source_class);
-
-    for (i = 0; i < num_of_src_class_conf; i++) {
-        fprintf(out_fp, " Source Class Confidence %d = %f:", i, src_class_conf[i]);
-    }
-
-    fprintf(out_fp, " SNR Estimate in dB = %f:", snr_estimate_in_db);
-
-    fprintf(out_fp, " rxVad = %f:", rx_vad);
-
-    for (i = 0; i < num_of_vp_params; i++) {
-        fprintf(out_fp, " Param ID 0x%X = %f:", (unsigned int)param_ids[i], param_vals[i]);
-    }
-
-    fprintf(out_fp, "\n");
-    fflush(out_fp);
-}
-
-/*
- * Buf idx                  Content
- *   0                     Number of keywords
- * [ 1 : numKwSlots ]      CS out Confidence level for the KWs present in that particular slot
- * [ numKwSlots + 1 ]      Number of events (numEvents)
- * [ numKwSlots + 2 ]      KW slot Index (AEC Ref instance KW_DETECT_EVENT0)
- * [ numKwSlots + 3 ]      Start Frame Sequence Number (AEC Ref instance START_FRM_EVENT1)
- * [ numKwSlots + 4 ]      End Frame Sequence Number (AEC Ref instance END_FRM_EVENT2)
- * [ numKwSlots + 5 ]      KW slot Index (AEC Ref instance TRUE_KW_EVENT3)
- * [ numKwSlots + 6 ]      KW slot Index (AEC Ref instance FA_KW_EVENT4)
- * [ numKwSlots + 7 ]      Peak confidence level (AEC Ref instance PEAK_CONF_LEVEL_EVENT5)
- * [ numKwSlots + 8 ]      Number of keywords (same as numKwsCsout)
- * [ numKwSlots + 9 :
- *   numKwSlots + 9 +
- *   numKwSlots - 1]       AEC Ref Confidence level for the KWs present in that particular slot
- */
-void parse_vq_meta_data(FILE *out_fp, unsigned char *buf_itr) {
-    float num_kws, confidence, temp;
-    int i;
-
-    if (NULL == buf_itr || NULL == out_fp) {
-        ALOGE("%s: Buffer or file pointer is NULL", __func__);
-        return;
-    }
-
-    kst_float_to_IEEE_float((void *)&num_kws, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "Num of Keywords = %f: ", num_kws);
-
-    for (i = 0; i < (int) num_kws; i++) {
-        kst_float_to_IEEE_float((void *)&confidence, buf_itr);
-        buf_itr += 4;
-
-        fprintf(out_fp, "CSOUT conf slot %d = %f: ", i, confidence);
-        confidence = 0.0f;
-    }
-
-    kst_float_to_IEEE_float((void *)&temp, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "Num of events = %f: ", temp);
-    temp = 0.0f;
-
-    kst_float_to_IEEE_float((void *)&temp, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "AECREF KW_DETECT_EVENT0 = %f: ", temp);
-    temp = 0.0f;
-
-    kst_float_to_IEEE_float((void *)&temp, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "AECREF START_FRM_EVENT1 = %f: ", temp);
-    temp = 0.0f;
-
-    kst_float_to_IEEE_float((void *)&temp, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "AECREF END_FRM_EVENT2 = %f: ", temp);
-    temp = 0.0f;
-
-    kst_float_to_IEEE_float((void *)&temp, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "AECREF TRUE_KW_EVENT3 = %f: ", temp);
-    temp = 0.0f;
-
-    kst_float_to_IEEE_float((void *)&temp, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "AECREF FA_KW_EVENT4 = %f: ", temp);
-    temp = 0.0f;
-
-    kst_float_to_IEEE_float((void *)&temp, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "AECREF PEAK_CONF_LEVEL_EVENT5 = %f: ", temp);
-    temp = 0.0f;
-
-    kst_float_to_IEEE_float((void *)&num_kws, buf_itr);
-    buf_itr += 4;
-    fprintf(out_fp, "Num of Keywords = %f: ", num_kws);
-
-    for (i = 0; i < (int) num_kws; i++) {
-        kst_float_to_IEEE_float((void *)&confidence, buf_itr);
-        buf_itr += 4;
-
-        fprintf(out_fp, "AECREF conf slot %d = %f: ", i, confidence);
-        confidence = 0.0f;
-    }
-
-    fprintf(out_fp, "\n");
-}
 
 void parse_audio_tunnel_data(FILE *out_fp, unsigned char *buf_itr, int frame_sz_in_bytes) {
     char q16_buf[BUF_SIZE]; // This can be smaller but by how much?
@@ -291,37 +76,6 @@ void parse_audio_tunnel_data(FILE *out_fp, unsigned char *buf_itr, int frame_sz_
     kst_float_to_q15_vector(q16_buf, buf_itr, frameSizeInWords);
 
     fwrite(q16_buf, (frameSizeInWords * 2), 1, out_fp);
-}
-
-/*
- * Buffer Index             Content
- *      [0]                 ParamCount - No of updated parameters in that particular frame
- * [1, 3, 5, ...]           VP runtime parameter ID's
- * [2, 4, 6, ...]           VP runtime parameter value's
- */
-void parse_param_data(FILE *out_fp, unsigned char *buf_itr) {
-    float param_id = 0.0f, param_val = 0.0f;
-    int i = 0;
-    float num_of_params = 0.0f;
-
-    if (NULL == buf_itr || NULL == out_fp) {
-        ALOGE("%s: Buffer or file pointer is NULL", __func__);
-        return;
-    }
-
-    kst_float_to_IEEE_float((void *)&num_of_params, buf_itr);
-    buf_itr += 4;
-
-    fprintf(out_fp, "PARAM ID\tPARAM VALUE\n");
-    for (i = 0; i < num_of_params; i++) {
-        kst_float_to_IEEE_float((void *)&param_id, buf_itr);
-        buf_itr += 4;
-
-        kst_float_to_IEEE_float((void *)&param_val, buf_itr);
-        buf_itr += 4;
-
-        fprintf(out_fp, "0x%X\t\t%f\n", (unsigned int)param_id, param_val);
-    }
 }
 
 int main(int argc, char *argv[]) {
@@ -345,7 +99,6 @@ int main(int argc, char *argv[]) {
     int notFirstFrame[MAX_TUNNELS] = { 0 };
     int frameDropCount[MAX_TUNNELS] = { 0 };
     uint64_t tunnel_time_stamps[MAX_TUNNELS] = { 0 };
-    bool is_initial_align_reached = true;
     unsigned char *frame_start, *buf_itr;
     // Minimum bytes required is the magic number + tunnel id + reserved and crc + raf struct
     int min_bytes_req = 4 + 2 + 6 + sizeof(struct raf_frame_type);
@@ -520,13 +273,8 @@ read_again:
             if (true == valid_frame) {
                 if (NULL == out_fp[tunnel_id]) {
                     char filename[256];
-
-                    if (DOA_TUNNEL_SRC == tunl_src) {
-                        snprintf(filename, 256, "%s_%d.txt", DOA_OUTPUT_FILE, instance);
-                    } else if (VQ_TUNNEL_SRC == tunl_src) {
-                        snprintf(filename, 256, "%s_%d.txt", VQ_CONFIDENCE_OUTPUT_FILE, instance);
-                    } else if (VP_PARAM_TUNNEL_SRC == tunl_src) {
-                        snprintf(filename, 256, "%s_%d.txt", VP_PARAM_DUMP_FILE, instance);
+                    if (TNL_ENC_OPAQUE == rft.format.encoding) {
+                        snprintf(filename, 256, "%sid%d-src0x%x-enc0x%x_client%d.raw", OUTPUT_FILE, tunnel_id, tunl_src, rft.format.encoding, instance);
 #ifdef FILENAME_ASSIGN
                     } else if (is_specified_name) {
                         snprintf(filename, 256, "%s/%s", OUTPUT_FILE_FOLDER, filename_str_format);
@@ -558,19 +306,11 @@ read_again:
             }
 
             if (true == valid_frame) {
-                if (DOA_TUNNEL_SRC == tunl_src) {
-                    parse_doa_meta_data(out_fp[tunnel_id], (void*) buf_itr);
-                } else if (VQ_TUNNEL_SRC == tunl_src) {
-                    parse_vq_meta_data(out_fp[tunnel_id], (void*) buf_itr);
-                } else if (VP_PARAM_TUNNEL_SRC == tunl_src) {
-                    parse_param_data(out_fp[tunnel_id], (void*) buf_itr);
+                ALOGD("@@@Tunnel id %d encoding %d", tunnel_id, rft.format.encoding);
+                if (TNL_ENC_AFLOAT == rft.format.encoding) {
+                    parse_audio_tunnel_data(out_fp[tunnel_id], buf_itr, rft.format.frameSizeInBytes);
                 } else {
-                    ALOGD("@@@Tunnel id %d encoding %d", tunnel_id, rft.format.encoding);
-                    if (TNL_ENC_AFLOAT == rft.format.encoding) {
-                        parse_audio_tunnel_data(out_fp[tunnel_id], buf_itr, rft.format.frameSizeInBytes);
-                    } else {
-                        fwrite(buf_itr, rft.format.frameSizeInBytes, 1, out_fp[tunnel_id]);
-                    }
+                    fwrite(buf_itr, rft.format.frameSizeInBytes, 1, out_fp[tunnel_id]);
                 }
             }
 
