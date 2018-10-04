@@ -86,12 +86,15 @@ include $(CLEAR_VARS)
 
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := oslo_config_test
-LOCAL_SRC_FILES := ./tests/oslo_config_test.c
+LOCAL_SRC_FILES := ./tests/oslo_config_test.c \
+                   cvq_util.c
+LOCAL_C_INCLUDES += external/tinyalsa/include $(call include-path-for, audio-route)
 LOCAL_32_BIT_ONLY := true
 LOCAL_SHARED_LIBRARIES := liblog \
 			libutils \
-			libcutils
-
+			libcutils \
+			libtinyalsa
+LOCAL_PROPRIETARY_MODULE := true
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)

@@ -40,7 +40,10 @@
 #include <sys/ioctl.h>
 #include <limits.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 #include "iaxxx-module.h"
+#include "cvq_ioctl.h"
 
 #define LOG_TAG "ia_sensor_param_test"
 
@@ -62,6 +65,7 @@ typedef enum
     SENSOR_PARAM_SAMP_SIZE,
     SENSOR_PARAM_INTF_SPEED,
     SENSOR_PARAM_DRIVER_STATE,
+    SENSOR_PARAM_FRAMES_PROCESSED,
 
     /* oslo preset configurations */
     OSLO_CONFIG_DEFAULT = OSLO_PRESET_CONFIG_START_INDEX,
@@ -213,6 +217,8 @@ static struct option const long_options[] =
  {"setparamid", required_argument, NULL, 's'},
  {"value", required_argument, NULL, 'v'},
  {"getparamid", required_argument, NULL, 'g'},
+ {"ping", required_argument, NULL, 'p'},
+ {"route", required_argument, NULL, 'r'},
  {"help", no_argument, NULL, GETOPT_HELP_CHAR},
  {NULL, 0, NULL, 0}
 };
@@ -226,6 +232,9 @@ void usage() {
     \n\
     In the first form, set a parameter with a value.\n\
     In the second form, get a value of a parameter\n\
+    \n\
+    3) oslo_config_test -p <timeout>\n\
+    4) oslo_config_test -r <1/0>\n\
     ", stdout);
 
     fputs("\n\
@@ -235,6 +244,8 @@ void usage() {
     -v          Set this value for the parameter ID that was passed with\n\
                 the option '-s'. Using this option alone is invalid.\n\
     -g          Get the value of a parameter using its <param_name>.\n\
+    -p          Ping oslo sensor.\n\
+    -r          Set sensor route.\n\
     ", stdout);
 
     fputs("\n\
@@ -278,14 +289,14 @@ void set_param(struct ia_sensor_mgr *smd, int param_id, float param_val) {
 
 }
 
-void get_param(struct ia_sensor_mgr *smd, int param_id) {
+uint32_t get_param(struct ia_sensor_mgr *smd, int param_id) {
     struct iaxxx_sensor_param sp;
     int err = 0;
     ALOGD ("Get param - param_id 0x%X", param_id);
 
     if (NULL == smd) {
         ALOGE("%s: NULL handle passed", __func__);
-        return;
+        return 0;
     }
 
     sp.inst_id      = 0;
@@ -296,13 +307,15 @@ void get_param(struct ia_sensor_mgr *smd, int param_id) {
     err = ioctl(fileno(smd->dev_node), MODULE_SENSOR_GET_PARAM, (unsigned long) &sp);
     if (-1 == err) {
         ALOGE("%s: ERROR: MODULE_SENSOR_GET_PARAM IOCTL failed with error %d(%s)", __func__, errno, strerror(errno));
-        return;
+        return 0;
     } else {
         ALOGD("Value of param 0x%X is %zu",
               sp.param_id, sp.param_val);
         fprintf(stdout, "Value of param 0x%X is %zu\n",
               sp.param_id, sp.param_val);
     }
+
+    return sp.param_val;
 }
 
 int oslo_setting_lookup(char *in)
@@ -322,18 +335,50 @@ int oslo_setting_lookup(char *in)
     return ret;
 }
 
+bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
+    bool ret = false;
+    uint32_t radar_frames_initial;
+    time_t start_time;
+
+    set_sensor_route(true);
+
+    start_time = time(NULL);
+    radar_frames_initial = get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
+
+    do {
+        uint32_t radar_frames = get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
+        if (radar_frames > radar_frames_initial) {
+            ALOGD("%s: frame number increased (%d, %d)",
+                  __func__, radar_frames_initial, radar_frames);
+            ret = true;
+            break;
+        }
+        else
+            usleep(50 * 1000); // 50ms
+    } while (difftime(time(NULL), start_time) <= ping_timeout_sec);
+
+    set_sensor_route(false);
+
+    ALOGD("%s: %s", __func__, (ret ? "PASS" : "FAIL"));
+    fprintf(stdout, "%s: %s\n", __func__, (ret ? "PASS" : "FAIL"));
+
+    return ret;
+}
+
 int main(int argc, char *argv[]) {
     struct ia_sensor_mgr * smd;
     char use_case;
     int param_id = -1;
     int c;
     float param_val = 0.0;
+    uint32_t ping_timeout_sec;
+    bool route_enable;
 
     if (argc <= 1) {
         usage();
     }
 
-    while ((c = getopt_long (argc, argv, "s:v:g:", long_options, NULL)) != -1) {
+    while ((c = getopt_long (argc, argv, "s:v:g:p:r:", long_options, NULL)) != -1) {
         switch (c) {
         case 's':
             if (NULL == optarg) {
@@ -379,6 +424,24 @@ int main(int argc, char *argv[]) {
                 }
             }
         break;
+        case 'p':
+            if (NULL == optarg) {
+                fprintf(stderr, "Incorrect usage, p option requires an argument");
+                usage();
+            } else {
+                ping_timeout_sec = strtoul(optarg, NULL, 0);
+                use_case = 'p';
+            }
+        break;
+        case 'r':
+            if (NULL == optarg) {
+                fprintf(stderr, "Incorrect usage, r option requires an argument");
+                usage();
+            } else {
+                route_enable = (strtoul(optarg, NULL, 0) != 0) ? true : false;
+                use_case = 'r';
+            }
+        break;
         case GETOPT_HELP_CHAR:
         default:
             usage();
@@ -401,6 +464,10 @@ int main(int argc, char *argv[]) {
             set_param(smd, param_id, param_val);
         } else if ('g' == use_case) {
             get_param(smd, param_id);
+        } else if ('p' == use_case) {
+            ping_test(smd, ping_timeout_sec);
+        } else if ('r' == use_case) {
+            set_sensor_route(route_enable);
         }
 
         if (smd->dev_node) {
