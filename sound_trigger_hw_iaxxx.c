@@ -40,6 +40,8 @@
 #include "iaxxx-odsp.h"
 #include "cvq_ioctl.h"
 
+#include "sound_trigger_intf.h"
+
 #define ENABLE_KEYPHRASE_DETECTION
 
 #define MAX_GENERIC_SOUND_MODELS    (3)
@@ -134,6 +136,10 @@ struct knowles_sound_trigger_device {
 
     int last_detected_model_type;
     bool is_mic_route_enabled;
+
+    void *audio_hal_handle;
+    audio_hw_call_back_t audio_hal_cb;
+    unsigned int sthal_prop_api_version;
 };
 
 /*
@@ -217,6 +223,48 @@ static int find_handle_for_kw_id(
 
     return i;
 }
+
+static void reg_hal_event_session(
+                                struct sound_trigger_recognition_config *config,
+                                sound_model_handle_t handle)
+{
+    struct knowles_sound_trigger_device *stdev = &g_stdev;
+    struct sound_trigger_event_info event_info;
+    /*
+     * Register config and capture_handle of trigger sound model to audio hal
+     * It only register while request capturing buffer.
+     */
+    if (config->capture_requested && stdev->audio_hal_cb) {
+        ALOGD("%s: ST_EVENT_SESSION_REGISTER capture_handle %d model %p",
+            __func__, config->capture_handle, &stdev->models[handle]);
+        event_info.st_ses.p_ses = (void *)&stdev->models[handle];
+        event_info.st_ses.config = stdev_hotword_pcm_config;
+        event_info.st_ses.capture_handle = config->capture_handle;
+        event_info.st_ses.pcm = NULL;
+        stdev->audio_hal_cb(ST_EVENT_SESSION_REGISTER, &event_info);
+    }
+}
+
+static void dereg_hal_event_session(
+                                struct sound_trigger_recognition_config *config,
+                                sound_model_handle_t handle)
+{
+    struct knowles_sound_trigger_device *stdev = &g_stdev;
+    struct sound_trigger_event_info event_info;
+    /*
+     * Indicate to audio hal that streaming is stopped.
+     * Stop capturing data from STHAL.
+     */
+    if (config->capture_requested && stdev->audio_hal_cb) {
+        ALOGD("%s: ST_EVENT_SESSION_DEREGISTER capture_handle %d model %p",
+            __func__, config->capture_handle, &stdev->models[handle]);
+        event_info.st_ses.p_ses = (void *)&stdev->models[handle];
+        event_info.st_ses.capture_handle = config->capture_handle;
+        event_info.st_ses.pcm = NULL;
+        stdev->audio_hal_cb(ST_EVENT_SESSION_DEREGISTER, &event_info);
+    }
+}
+
 
 static char *stdev_keyphrase_event_alloc(sound_model_handle_t handle,
                                 struct sound_trigger_recognition_config *config,
@@ -745,6 +793,7 @@ static int stdev_start_recognition(
     }
 
     if (model->config != NULL) {
+        dereg_hal_event_session(model->config, handle);
         free(model->config);
         model->config = NULL;
     }
@@ -759,6 +808,7 @@ static int stdev_start_recognition(
         }
 
         memcpy(model->config, config, sizeof(*config));
+        reg_hal_event_session(model->config, handle);
 
         ALOGD("%s: Is capture requested %d",
             __func__, config->capture_requested);
@@ -810,6 +860,7 @@ static int stdev_stop_recognition(
     pthread_mutex_lock(&stdev->lock);
 
     if (model->config != NULL) {
+        dereg_hal_event_session(model->config, handle);
         free(model->config);
         model->config = NULL;
     }
@@ -868,99 +919,6 @@ static int stdev_close(hw_device_t *device)
 exit:
     pthread_mutex_unlock(&stdev->lock);
     ALOGD("-%s-", __func__);
-    return ret;
-}
-
-__attribute__ ((visibility ("default")))
-int stdev_open_for_streaming()
-{
-    struct knowles_sound_trigger_device *stdev = &g_stdev;
-    int ret = 0;
-
-    ALOGI("%s: Entering", __func__);
-    pthread_mutex_lock(&stdev->lock);
-    if (stdev->opened == false) {
-        ALOGE("%s: Error SoundTrigger has not been opened", __func__);
-        goto exit;
-    }
-
-    if (stdev->is_streaming == false) {
-        if (stdev->adnc_strm_open == NULL) {
-            ALOGE("%s: Error adnc streaming not supported", __func__);
-        } else {
-            bool keyword_stripping_enabled = false;
-            stdev->adnc_strm_handle = stdev->adnc_strm_open(
-                                            keyword_stripping_enabled, 0,
-                                            stdev->last_detected_model_type);
-            if (stdev->adnc_strm_handle) {
-                ALOGD("Successfully opened adnc streaming");
-                stdev->is_streaming = true;
-                ret = stdev->adnc_strm_handle;
-            } else {
-                ALOGE("%s: DSP is currently not streaming", __func__);
-            }
-        }
-    }
-
-exit:
-    pthread_mutex_unlock(&stdev->lock);
-    return ret;
-}
-
-__attribute__ ((visibility ("default")))
-size_t stdev_read_samples(int audio_handle, void *buffer, size_t buffer_len)
-{
-    struct knowles_sound_trigger_device *stdev = &g_stdev;
-    size_t ret = 0;
-
-    //ALOGI("%s: Entering", __func__);
-    pthread_mutex_lock(&stdev->lock);
-
-    if (stdev->opened == false || stdev->is_streaming == false) {
-        ALOGE("%s: Error SoundTrigger has not been opened or DSP is not"
-              " streaming", __func__);
-        ret = -EINVAL;
-        goto exit;
-    }
-
-    if (audio_handle == 0 || (audio_handle != stdev->adnc_strm_handle)) {
-        ALOGE("%s: Error - Invalid audio handle", __func__);
-        ret = -EINVAL;
-        goto exit;
-    }
-
-    ALOGD("%s: soundtrigger HAL adnc_strm_read", __func__);
-    ret = stdev->adnc_strm_read(stdev->adnc_strm_handle, buffer, buffer_len);
-    ALOGD("%s: Sent %zu bytes to buffer", __func__, ret);
-
-exit:
-    pthread_mutex_unlock(&stdev->lock);
-    return ret;
-}
-
-__attribute__ ((visibility ("default")))
-int stdev_close_for_streaming(int audio_handle)
-{
-    struct knowles_sound_trigger_device *stdev = &g_stdev;
-    int ret = 0;
-
-    ALOGI("%s: Entering", __func__);
-    pthread_mutex_lock(&stdev->lock);
-
-    if (audio_handle == 0 || (audio_handle != stdev->adnc_strm_handle)) {
-        ALOGE("%s: Error - Invalid audio handle", __func__);
-        ret = -EINVAL;
-        goto exit;
-    }
-
-    if (stdev->adnc_strm_handle) {
-        stdev->adnc_strm_close(stdev->adnc_strm_handle);
-        stdev->adnc_strm_handle = 0;
-        stdev->is_streaming = 0;
-    }
-
-exit:
-    pthread_mutex_unlock(&stdev->lock);
     return ret;
 }
 
@@ -1126,6 +1084,61 @@ static int open_streaming_lib(struct knowles_sound_trigger_device *stdev) {
     return ret;
 }
 
+static int load_audio_hal()
+{
+    char audio_hal_lib[100];
+    void *sthal_prop_api_version = NULL;
+    struct knowles_sound_trigger_device *stdev = &g_stdev;
+    int ret = 0;
+
+    snprintf(audio_hal_lib, sizeof(audio_hal_lib), "%s/%s.%s.so",
+            AUDIO_HAL_LIBRARY_PATH, AUDIO_HAL_NAME_PREFIX,
+            SOUND_TRIGGER_PLATFORM);
+    if (access(audio_hal_lib, R_OK)) {
+        ALOGE("%s: ERROR. %s not found", __func__, audio_hal_lib);
+        return -ENOENT;
+    }
+
+    stdev->audio_hal_handle = dlopen(audio_hal_lib, RTLD_NOW);
+    if (stdev->audio_hal_handle == NULL) {
+        ALOGE("%s: ERROR. %s", __func__, dlerror());
+        return -ENODEV;
+    }
+
+    stdev->audio_hal_cb = dlsym(stdev->audio_hal_handle, "audio_hw_call_back");
+    if (stdev->audio_hal_cb == NULL) {
+        ALOGE("%s: ERROR. %s", __func__, dlerror());
+        ret = -ENODEV;
+        goto error;
+    }
+
+    sthal_prop_api_version = dlsym(stdev->audio_hal_handle,
+                                "sthal_prop_api_version");
+    if (sthal_prop_api_version == NULL) {
+        stdev->sthal_prop_api_version = 0;
+        ret = 0; /* passthru for backward compability */
+    } else {
+        stdev->sthal_prop_api_version = *(int *)sthal_prop_api_version;
+        if (MAJOR_VERSION(stdev->sthal_prop_api_version) !=
+            MAJOR_VERSION(STHAL_PROP_API_CURRENT_VERSION)) {
+            ALOGE("%s: Incompatible API versions sthal:0x%x != ahal:0x%x",
+                __func__, STHAL_PROP_API_CURRENT_VERSION,
+                stdev->sthal_prop_api_version);
+            goto error;
+        }
+        ALOGD("%s: ahal is using proprietary API version 0x%04x", __func__,
+            stdev->sthal_prop_api_version);
+    }
+
+    ALOGD("%s: load AHAL successfully.", __func__);
+    return ret;
+
+error:
+    dlclose(stdev->audio_hal_handle);
+    stdev->audio_hal_handle = NULL;
+    return ret;
+}
+
 static int stdev_open(const hw_module_t *module, const char *name,
         hw_device_t **device)
 {
@@ -1149,6 +1162,14 @@ static int stdev_open(const hw_module_t *module, const char *name,
     ret = open_streaming_lib(stdev);
     if (ret != 0) {
         ALOGE("%s: Couldnot open the streaming library", __func__);
+        goto exit;
+    }
+
+    ret = load_audio_hal();
+    if (ret != 0) {
+        if (stdev->adnc_cvq_strm_lib)
+            dlclose(stdev->adnc_cvq_strm_lib);
+        ALOGE("%s: Couldn't load AHAL", __func__);
         goto exit;
     }
 
@@ -1215,6 +1236,106 @@ static int stdev_open(const hw_module_t *module, const char *name,
 
 exit:
     pthread_mutex_unlock(&stdev->lock);
+    return ret;
+}
+
+/* AHAL calls this callback to communicate with STHAL */
+int sound_trigger_hw_call_back(audio_event_type_t event,
+                            struct audio_event_info *config)
+{
+    int ret = 0;
+    struct knowles_sound_trigger_device *stdev = &g_stdev;
+    if (!stdev)
+        return -ENODEV;
+
+    if (!stdev->opened) {
+        ALOGE("%s: Error SoundTrigger has not been opened", __func__);
+        return -EINVAL;
+    }
+
+    switch (event) {
+    case AUDIO_EVENT_CAPTURE_DEVICE_INACTIVE:
+    case AUDIO_EVENT_CAPTURE_DEVICE_ACTIVE:
+    case AUDIO_EVENT_PLAYBACK_STREAM_INACTIVE:
+    case AUDIO_EVENT_PLAYBACK_STREAM_ACTIVE:
+    case AUDIO_EVENT_CAPTURE_STREAM_INACTIVE:
+    case AUDIO_EVENT_CAPTURE_STREAM_ACTIVE:
+        /*
+         * [TODO] handle playback stream on/off event
+         * That need to enable AEC plugin in codec
+         */
+
+        /*
+         * [TODO] handle capture stream on/off event
+         * That pause all recognition in codec
+         * and resume after capture stream off
+         */
+        ALOGD("%s: handle audio concurrency %d", __func__, event);
+        break;
+
+    case AUDIO_EVENT_STOP_LAB:
+        /* Close Stream Driver */
+        ALOGD("%s: close streaming %d", __func__, event);
+        pthread_mutex_lock(&stdev->lock);
+        if (stdev->adnc_strm_handle) {
+            stdev->adnc_strm_close(stdev->adnc_strm_handle);
+            stdev->adnc_strm_handle = 0;
+            stdev->is_streaming = 0;
+        }
+        pthread_mutex_unlock(&stdev->lock);
+
+        break;
+
+    case AUDIO_EVENT_SSR:
+        /*[TODO] Do we need to handle adsp SSR event ? */
+        ALOGD("%s: handle audio subsystem restart %d", __func__, event);
+        break;
+
+    case AUDIO_EVENT_READ_SAMPLES:
+        /* Open Stream Driver */
+        pthread_mutex_lock(&stdev->lock);
+        if (stdev->is_streaming == false) {
+            if (stdev->adnc_strm_open == NULL) {
+                ALOGE("%s: Error adnc streaming not supported", __func__);
+            } else {
+                bool keyword_stripping_enabled = false;
+                stdev->adnc_strm_handle = stdev->adnc_strm_open(
+                                            keyword_stripping_enabled, 0,
+                                            stdev->last_detected_model_type);
+                if (stdev->adnc_strm_handle) {
+                    ALOGD("Successfully opened adnc streaming");
+                    stdev->is_streaming = true;
+                } else {
+                    ALOGE("%s: DSP is currently not streaming", __func__);
+                }
+            }
+        }
+        /* Read pcm data from tunnel */
+        if (stdev->is_streaming == true) {
+            //ALOGD("%s: soundtrigger HAL adnc_strm_read", __func__);
+            stdev->adnc_strm_read(stdev->adnc_strm_handle,
+                                config->u.aud_info.buf,
+                                config->u.aud_info.num_bytes);
+        } else {
+            ALOGE("%s: soundtrigger is not streaming", __func__);
+        }
+        pthread_mutex_unlock(&stdev->lock);
+
+        break;
+
+    case AUDIO_EVENT_NUM_ST_SESSIONS:
+    case AUDIO_EVENT_DEVICE_CONNECT:
+    case AUDIO_EVENT_DEVICE_DISCONNECT:
+    case AUDIO_EVENT_SVA_EXEC_MODE:
+    case AUDIO_EVENT_SVA_EXEC_MODE_STATUS:
+        ALOGV("%s: useless event %d", __func__, event);
+        break;
+
+    default:
+        ALOGW("%s: Unknown event %d", __func__, event);
+        break;
+    }
+
     return ret;
 }
 
