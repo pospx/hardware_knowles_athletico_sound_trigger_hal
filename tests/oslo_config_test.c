@@ -79,6 +79,7 @@ typedef enum
     OSLO_CONTROL_RESTART = OSLO_CONTROL_START_INDEX,
     OSLO_CONTROL_STRIP_HEADERS,
     OSLO_CONTROL_SLPI_INT,
+    OSLO_CONTROL_STOP,
 
     /* oslo settings */
     OSLO_PARAM_REQUEST_RATE = OSLO_SETTING_START_INDEX,
@@ -130,6 +131,10 @@ typedef enum
     OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_MADC_BANDGAP,
     OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_SADC,
     OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_SADC_BANDGAP,
+    OSLO_PARAM_TOSS_COUNT,
+    OSLO_PARAM_CHIRP_DIRECTION,
+    OSLO_PARAM_ADC_SAMPLE_RATE,
+    OSLO_PARAM_CHARGE_PUMP,
 
     SENSOR_PARAM_NUM,
 
@@ -154,6 +159,7 @@ static const oslo_settings_t oslo_settings[] =
     {OSLO_CONTROL_RESTART,                                  "oslo_control_restart"},
     {OSLO_CONTROL_STRIP_HEADERS,                            "oslo_control_strip_headers"},
     {OSLO_CONTROL_SLPI_INT,                                 "oslo_control_slpi_interrupt"},
+    {OSLO_CONTROL_STOP,                                     "oslo_control_stop"},
     {OSLO_PARAM_REQUEST_RATE,                               "param_request_rate"},
     {OSLO_PARAM_REQUEST_ANTENNA_MASK,                       "param_request_antenna_mask"},
     {OSLO_PARAM_TX_POWER,                                   "param_tx_power"},
@@ -202,7 +208,10 @@ static const oslo_settings_t oslo_settings[] =
     {OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_MADC,            "param_deep_sleep_settings_enable_madc"},
     {OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_MADC_BANDGAP,    "param_deep_sleep_settings_enable_madc_bandgap"},
     {OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_SADC,            "param_deep_sleep_settings_enable_sadc"},
-    {OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_SADC_BANDGAP,    "param_deep_sleep_settings_enable_sadc_bandgap"}
+    {OSLO_PARAM_DEEP_SLEEP_SETTINGS_ENABLE_SADC_BANDGAP,    "param_deep_sleep_settings_enable_sadc_bandgap"},
+    {OSLO_PARAM_CHIRP_DIRECTION,                            "param_chirp_direction"},
+    {OSLO_PARAM_ADC_SAMPLE_RATE,                            "param_adc_sample_rate"},
+    {OSLO_PARAM_CHARGE_PUMP,                                "param_charge_pump"},
 };
 
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
