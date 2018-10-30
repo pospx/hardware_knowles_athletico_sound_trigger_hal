@@ -238,6 +238,7 @@ int set_sensor_route(bool enable)
     }
 
     if (enable) {
+        set_mixer_ctl_string(mixer, "sensor0 Ip Conf", "plugin3Out1");
         set_mixer_ctl_val(mixer, "sensor0 En", 1);
         set_mixer_ctl_string(mixer, "Plgin2Ip Ep0 Conf", "SensorOut0");
         set_mixer_ctl_string(mixer, "Plgin3Ip Ep0 Conf", "plugin2Out0");
@@ -247,6 +248,7 @@ int set_sensor_route(bool enable)
         set_mixer_ctl_val(mixer, "Plgin3Blk1En", 0);
         set_mixer_ctl_val(mixer, "Plgin2Blk1En", 0);
         set_mixer_ctl_val(mixer, "sensor0 En", 0);
+        set_mixer_ctl_string(mixer, "sensor0 Ip Conf", "UNKNOWN");
     }
 
 exit:
