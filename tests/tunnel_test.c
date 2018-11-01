@@ -273,12 +273,14 @@ read_again:
             if (true == valid_frame) {
                 if (NULL == out_fp[tunnel_id]) {
                     char filename[256];
-                    if (TNL_ENC_OPAQUE == rft.format.encoding) {
-                        snprintf(filename, 256, "%sid%d-src0x%x-enc0x%x_client%d.raw", OUTPUT_FILE, tunnel_id, tunl_src, rft.format.encoding, instance);
 #ifdef FILENAME_ASSIGN
-                    } else if (is_specified_name) {
+                    if (is_specified_name) {
                         snprintf(filename, 256, "%s/%s", OUTPUT_FILE_FOLDER, filename_str_format);
+                    } else if (TNL_ENC_OPAQUE == rft.format.encoding) {
+#else
+                    if (TNL_ENC_OPAQUE == rft.format.encoding) {
 #endif /* FILENAME_ASSIGN */
+                        snprintf(filename, 256, "%sid%d-src0x%x-enc0x%x_client%d.raw", OUTPUT_FILE, tunnel_id, tunl_src, rft.format.encoding, instance);
                     } else {
                         snprintf(filename, 256, "%sid%d-src0x%x-enc0x%x_client%d.pcm", OUTPUT_FILE, tunnel_id, tunl_src, rft.format.encoding, instance);
                     }
