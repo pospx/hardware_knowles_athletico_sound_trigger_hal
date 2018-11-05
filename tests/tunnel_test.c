@@ -20,6 +20,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <unistd.h>
 
 #define LOG_TAG "ia_tunneling_hal_test"
 
@@ -133,7 +134,7 @@ int main(int argc, char *argv[]) {
 
     if (is_specified_name) {
         if (argc != (num_of_tunnels * 3 + 4 + 2)) {
-            ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>... [-f filename]", argv[0], __LINE__);
+            ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>... [-f filename]", argv[0]);
             return -EINVAL;
         }
         else {
@@ -141,7 +142,7 @@ int main(int argc, char *argv[]) {
         }
     } else {
         if (argc != (num_of_tunnels * 3 + 4)) {
-            ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>...", argv[0],  __LINE__);
+            ALOGE("USAGE: %s <instance number> <Number of tunnels> <Sync Tunnel req> <Source End pt 1> <tnl mode> <encode fmt> <Source End pt 2> <tnl mode> <encode fmt>...", argv[0]);
             return -EINVAL;
         }
     }
