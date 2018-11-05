@@ -490,7 +490,6 @@ static void *callback_thread_loop(void *context)
                 pthread_mutex_unlock(&stdev->lock);
                 continue;
             }
-            ALOGI("uevent msg is %s", msg);
             for (i = 0; i < n;) {
                 if (strstr(msg + i, IAXXX_VQ_EVENT_STR)) {
                     ALOGI("%s", IAXXX_VQ_EVENT_STR);
