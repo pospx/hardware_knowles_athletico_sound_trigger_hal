@@ -23,15 +23,11 @@
 #include <sys/ioctl.h>
 #include <inttypes.h>
 
-#include "iaxxx-odsp.h"
-
 #include "iaxxx_odsp_hw.h"
 
 #define DEV_NODE "/dev/iaxxx-odsp-celldrv"
 #define FUNCTION_ENTRY_LOG ALOGV("Entering %s", __func__);
 #define FUNCTION_EXIT_LOG ALOGV("Exiting %s", __func__);
-
-#define NAME_MAX_SIZE 256
 
 struct iaxxx_odsp_hw {
     FILE *dev_node;
@@ -103,12 +99,10 @@ func_exit:
  *          pkg_name - Relative path to the Package binary (Should be placed in
  *                     the firmware location)
  *          pkg_id - Package ID
- *          proc_id - Process ID
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_package_load(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                            const char *pkg_name, const uint32_t pkg_id,
-                            const uint32_t proc_id)
+                            const char *pkg_name, const uint32_t pkg_id)
 {
     int err = 0;
     struct iaxxx_pkg_mgmt_info pkg_info;
@@ -127,12 +121,11 @@ int iaxxx_odsp_package_load(struct iaxxx_odsp_hw *odsp_hw_hdl,
         goto func_exit;
     }
 
-    ALOGV("%s: Package name %s, package id %u, process id %u",
-        __func__, pkg_name, pkg_id, proc_id);
+    ALOGV("%s: Package name %s, package id %u",
+        __func__, pkg_name, pkg_id);
 
     strlcpy(pkg_info.pkg_name, pkg_name, NAME_MAX_SIZE);
     pkg_info.pkg_id = pkg_id;
-    pkg_info.proc_id = proc_id;
     err = ioctl(fileno(odsp_hw_hdl->dev_node),
                 ODSP_LOAD_PACKAGE, (unsigned long)&pkg_info);
     if (err < 0) {
@@ -151,12 +144,10 @@ func_exit:
  *          pkg_name - Relative path to the Package binary (Should be placed in
  *                     the firmware location)
  *          pkg_id - Package ID
- *          proc_id - Process ID
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_package_unload(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                            const uint32_t pkg_id,
-                            const uint32_t proc_id)
+                            const uint32_t pkg_id)
 {
     int err = 0;
     struct iaxxx_pkg_mgmt_info pkg_info;
@@ -169,10 +160,9 @@ int iaxxx_odsp_package_unload(struct iaxxx_odsp_hw *odsp_hw_hdl,
         goto func_exit;
     }
 
-    ALOGV("%s: package id %u, process id %u", __func__, pkg_id, proc_id);
+    ALOGV("%s: package id %u", __func__, pkg_id);
 
     pkg_info.pkg_id = pkg_id;
-    pkg_info.proc_id = proc_id;
     err = ioctl(fileno(odsp_hw_hdl->dev_node),
                 ODSP_UNLOAD_PACKAGE, (unsigned long)&pkg_info);
     if (err < 0) {
@@ -779,6 +769,44 @@ func_exit:
     return err;
 }
 
+/**
+ * Retrieve an event
+ *
+ * Input  - odsp_hw_hdl - Handle to odsp hw structure
+ *          event_info  - Struct to return event info
+ *
+ * Output - 0 on success, on failure < 0
+ */
+int iaxxx_odsp_evt_getevent(struct iaxxx_odsp_hw *odsp_hw_hdl,
+                            struct iaxxx_get_event_info *event_info)
+{
+    int err = 0;
+    struct iaxxx_get_event ei;
+
+    FUNCTION_ENTRY_LOG;
+
+    if (odsp_hw_hdl == NULL) {
+        ALOGE("%s: ERROR: Invalid handle to iaxxx_odsp_hw", __func__);
+        err = -1;
+        goto func_exit;
+    }
+
+    err = ioctl(fileno(odsp_hw_hdl->dev_node),
+                ODSP_GET_EVENT, (unsigned long) &ei);
+    if (err < 0) {
+        ALOGE("%s: ERROR: Failed with error %s", __func__, strerror(errno));
+    }
+
+    ALOGV("%s: event id %u, data %u",
+            __func__, ei.event_id, ei.data);
+    event_info->event_id = ei.event_id;
+    event_info->data = ei.data;
+
+func_exit:
+    FUNCTION_EXIT_LOG;
+    return err;
+}
+
 
 /**
  * Create a plugin for a statically loaded package
@@ -1010,14 +1038,14 @@ int iaxxx_odsp_plugin_set_parameter_blk_with_ack(
     }
 
     ALOGV("%s: Instance id %u, block id %u, param blk id %u max-retries:%u",
-            __func__, inst_id, block_id, param_blk_id, max_no_retries);
+        __func__, inst_id, block_id, param_blk_id, max_no_retries);
 
     pspbwa.inst_id = inst_id;
     pspbwa.block_id = block_id;
     pspbwa.param_blk_id = param_blk_id;
-    pspbwa.set_param_blk_buffer = (uintptr_t) set_param_buf;
+    pspbwa.set_param_blk_buffer = (uintptr_t)set_param_buf;
     pspbwa.set_param_blk_size = set_param_buf_sz;
-    pspbwa.response_buffer = (uintptr_t) response_data_buf;
+    pspbwa.response_buffer = (uintptr_t)response_data_buf;
     pspbwa.response_buf_size = response_data_sz;
     pspbwa.max_retries = max_no_retries;
 
@@ -1031,4 +1059,154 @@ int iaxxx_odsp_plugin_set_parameter_blk_with_ack(
 func_exit:
     FUNCTION_EXIT_LOG;
     return err;
+}
+
+/**
+ * Get Plugin status information.
+ *
+ * Input  - odsp_hw_hdl         - Handle to odsp hw structure
+ *          inst_id             - Instance ID
+ *          plugin_status_data  - Pointer to struct to return plugin status.
+ *
+ * Output - 0 on success, on failure < 0
+ */
+int iaxxx_odsp_plugin_get_status_info(struct iaxxx_odsp_hw *odsp_hw_hdl,
+                            const uint32_t inst_id,
+                            struct iaxxx_plugin_status_data *plugin_status_data)
+{
+    int err = 0;
+    struct iaxxx_plugin_status_info psi;
+
+    FUNCTION_ENTRY_LOG;
+
+    if (odsp_hw_hdl == NULL) {
+        ALOGE("%s: ERROR: Invalid handle to iaxxx_odsp_hw", __func__);
+        err = -1;
+        goto func_exit;
+    }
+
+    ALOGV("%s: Instance id %u", __func__, inst_id);
+
+    psi.inst_id = inst_id;
+
+    err = ioctl(fileno(odsp_hw_hdl->dev_node),
+            ODSP_PLG_GET_STATUS_INFO, (unsigned long) &psi);
+    if (err < 0) {
+        ALOGE("%s: ERROR: Failed with error %s", __func__, strerror(errno));
+        goto func_exit;
+    }
+
+    plugin_status_data->block_id = psi.block_id;
+    plugin_status_data->create_status = psi.create_status;
+    plugin_status_data->enable_status = psi.enable_status;
+    plugin_status_data->process_count = psi.process_count;
+    plugin_status_data->process_err_count = psi.process_err_count;
+    plugin_status_data->in_frames_consumed = psi.in_frames_consumed;
+    plugin_status_data->out_frames_produced = psi.out_frames_produced;
+    plugin_status_data->private_memsize = psi.private_memsize;
+    plugin_status_data->frame_notification_mode = psi.frame_notification_mode;
+    plugin_status_data->state_management_mode = psi.state_management_mode;
+
+    ALOGV("%s: block_id:%u create_status:%d enable_status:%d",
+        __func__, psi.block_id, psi.create_status, psi.enable_status);
+    ALOGV("%s: in_frames_consumed:%u out_frames_produced:%u",
+        __func__, psi.in_frames_consumed, psi.out_frames_produced);
+    ALOGV("%s: process_count:%u process_err_count=%u private_memsize=%u",
+        __func__, psi.process_count, psi.process_err_count,
+        psi.private_memsize);
+    ALOGV("%s: frame_notification_mode:%u state_management_mode=%u",
+        __func__, psi.frame_notification_mode, psi.state_management_mode);
+
+func_exit:
+    FUNCTION_EXIT_LOG;
+    return err;
+}
+
+/**
+ * Get Plugin endpoint status information.
+ *
+ * Input  - odsp_hw_hdl            - Handle to odsp hw structure
+ *          inst_id                - Instance ID
+ *          ep_index               - Index of Endpoint
+ *          direction              - If Input endpoint or Output endpoint
+ *                                   0 => input, 1 => output
+ *          plugin_ep_status_data  - Pointer to struct to return plugin
+ *                                   endpoint status.
+ *
+ *
+ * Output - 0 on success, on failure < 0
+ */
+int iaxxx_odsp_plugin_get_endpoint_status(struct iaxxx_odsp_hw *odsp_hw_hdl,
+            const uint32_t inst_id,
+            const uint8_t ep_index,
+            const uint8_t direction,
+            struct iaxxx_plugin_endpoint_status_data *plugin_ep_status_data)
+{
+    int err = 0;
+    struct iaxxx_plugin_endpoint_status_info plugin_ep_status_info;
+
+    FUNCTION_ENTRY_LOG;
+
+    if (odsp_hw_hdl == NULL) {
+        ALOGE("%s: ERROR: Invalid handle to iaxxx_odsp_hw", __func__);
+        err = -1;
+        goto func_exit;
+    }
+
+    ALOGV("%s: Instance id %u", __func__, inst_id);
+
+    plugin_ep_status_info.inst_id = inst_id;
+    plugin_ep_status_info.ep_index = ep_index;
+    plugin_ep_status_info.direction = direction;
+
+    err = ioctl(fileno(odsp_hw_hdl->dev_node),
+            ODSP_PLG_GET_ENDPOINT_STATUS,
+            (unsigned long) &plugin_ep_status_info);
+    if (err < 0) {
+        ALOGE("%s: ERROR: Failed with error %s", __func__, strerror(errno));
+        goto func_exit;
+    }
+
+    plugin_ep_status_data->status
+                            = plugin_ep_status_info.status;
+    plugin_ep_status_data->frame_status
+                            = plugin_ep_status_info.frame_status;
+    plugin_ep_status_data->endpoint_status
+                            = plugin_ep_status_info.endpoint_status;
+    plugin_ep_status_data->usage
+                            = plugin_ep_status_info.usage;
+    plugin_ep_status_data->mandatory
+                            = plugin_ep_status_info.mandatory;
+    plugin_ep_status_data->counter
+                            = plugin_ep_status_info.counter;
+
+    if(direction) {
+        plugin_ep_status_data->op_encoding
+                                = plugin_ep_status_info.op_encoding;
+        plugin_ep_status_data->op_sample_rate
+                                = plugin_ep_status_info.op_sample_rate;
+        plugin_ep_status_data->op_frame_length
+                                = plugin_ep_status_info.op_frame_length;
+    }
+
+    ALOGV("%s: status:%u frame_status:%d endpoint_status:%d",
+        __func__, plugin_ep_status_data->status,
+        plugin_ep_status_info.frame_status,
+        plugin_ep_status_info.endpoint_status);
+
+    ALOGV("%s: usage:%d mandatory:%d counter:%u",
+        __func__, plugin_ep_status_data->usage,
+        plugin_ep_status_info.mandatory,
+        plugin_ep_status_info.counter);
+
+    if(direction)
+        ALOGV("%s: op_encoding:%d op_sample_rate:%d op_frame_length:%u",
+            __func__, plugin_ep_status_data->op_encoding,
+            plugin_ep_status_info.op_sample_rate,
+            plugin_ep_status_info.op_frame_length);
+
+func_exit:
+    FUNCTION_EXIT_LOG;
+    return err;
+
 }

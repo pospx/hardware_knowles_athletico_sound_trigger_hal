@@ -22,6 +22,9 @@ extern "C"
 {
 #endif
 
+#include "iaxxx-odsp.h"
+#include "iaxxx-system-identifiers.h"
+
 struct iaxxx_odsp_hw;
 
 struct iaxxx_config_file {
@@ -48,6 +51,36 @@ struct iaxxx_create_config_data {
     union iaxxx_config_data data;
 };
 
+struct iaxxx_plugin_status_data {
+    uint32_t block_id;
+    uint8_t  create_status;
+    uint8_t  enable_status;
+    uint16_t process_count;
+    uint16_t process_err_count;
+    uint32_t in_frames_consumed;
+    uint32_t out_frames_produced;
+    uint32_t private_memsize;
+    uint8_t  frame_notification_mode;
+    uint8_t  state_management_mode;
+};
+
+struct iaxxx_plugin_endpoint_status_data {
+    uint8_t  status;
+    uint8_t  frame_status;
+    uint8_t  endpoint_status;
+    uint8_t  usage;
+    uint8_t  mandatory;
+    uint16_t counter;
+    uint8_t  op_encoding;
+    uint8_t  op_sample_rate;
+    uint16_t op_frame_length;
+};
+
+struct iaxxx_get_event_info {
+  uint16_t event_id;
+  uint32_t data;
+};
+
 /**
  * Initialize the ODSP HAL
  *
@@ -71,25 +104,21 @@ int iaxxx_odsp_deinit(struct iaxxx_odsp_hw *odsp_hw_hdl);
  *          pkg_name - Relative path to the Package binary (Should be placed in
  *                     the firmware location)
  *          pkg_id - Package ID
- *          proc_id - Process ID
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_package_load(struct iaxxx_odsp_hw *odsp_hw_hdl,
                             const char *pkg_name,
-                            const uint32_t pkg_id,
-                            const uint32_t proc_id);
+                            const uint32_t pkg_id);
 
 /**
  * Unload a package
  *
  * Input  - odsp_hw_hdl - Handle to odsp hw structure
  *          pkg_id - Package ID
- *          proc_id - Process ID
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_package_unload(struct iaxxx_odsp_hw *odsp_hw_hdl,
-			                const uint32_t pkg_id,
-			                const uint32_t proc_id);
+			                const uint32_t pkg_id);
 
 /**
  * Create a plugin
@@ -104,11 +133,11 @@ int iaxxx_odsp_package_unload(struct iaxxx_odsp_hw *odsp_hw_hdl,
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_plugin_create(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                             const uint32_t inst_id,
-                             const uint32_t priority,
-                             const uint32_t pkg_id,
-                             const uint32_t plg_idx,
-                             const uint32_t block_id);
+                            const uint32_t inst_id,
+                            const uint32_t priority,
+                            const uint32_t pkg_id,
+                            const uint32_t plg_idx,
+                            const uint32_t block_id);
 
 /**
  * Set the creation configuration on a plugin
@@ -135,8 +164,8 @@ int iaxxx_odsp_plugin_set_creation_config(
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_plugin_destroy(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                              const uint32_t inst_id,
-                              const uint32_t block_id);
+                            const uint32_t inst_id,
+                            const uint32_t block_id);
 
 /**
  * Enable the plugin
@@ -159,8 +188,8 @@ int iaxxx_odsp_plugin_enable(struct iaxxx_odsp_hw *odsp_hw_hdl,
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_plugin_disable(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                              const uint32_t inst_id,
-                              const uint32_t block_id);
+                            const uint32_t inst_id,
+                            const uint32_t block_id);
 
 /**
  * Reset the plugin
@@ -289,9 +318,19 @@ int iaxxx_odsp_evt_subscribe(struct iaxxx_odsp_hw *odsp_hw_hdl,
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_evt_unsubscribe(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                              const uint16_t src_id,
-                              const uint16_t event_id,
-                              const uint16_t dst_id);
+                            const uint16_t src_id,
+                            const uint16_t event_id,
+                            const uint16_t dst_id);
+/**
+ * Retrieve an event
+ *
+ * Input  - odsp_hw_hdl - Handle to odsp hw structure
+ *          event_info  - Struct to return event info
+ *
+ * Output - 0 on success, on failure < 0
+ */
+int iaxxx_odsp_evt_getevent(struct iaxxx_odsp_hw *odsp_hw_hdl,
+                            struct iaxxx_get_event_info *event_info);
 
 /**
  * Create a plugin for a statically loaded package
@@ -342,9 +381,9 @@ int iaxxx_odsp_plugin_get_parameter_blk(struct iaxxx_odsp_hw *odsp_hw_hdl,
  * Output - 0 on success, on failure < 0
  */
 int iaxxx_odsp_plugin_setevent(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                              const uint32_t inst_id,
-                              const uint32_t eventEnableMask,
-                              const uint32_t block_id);
+                            const uint32_t inst_id,
+                            const uint32_t eventEnableMask,
+                            const uint32_t block_id);
 
 /* Read Plugin Error Info
  *
@@ -389,6 +428,40 @@ int iaxxx_odsp_plugin_set_parameter_blk_with_ack(
                                         const uint32_t response_data_sz,
                                         const uint32_t max_no_retries);
 
+/**
+ * Get Plugin status information.
+ *
+ * Input  - odsp_hw_hdl         - Handle to odsp hw structure
+ *          inst_id             - Instance ID
+ *          plugin_status_data  - Pointer to struct to return plugin status.
+ *
+ * Output - 0 on success, on failure < 0
+ */
+int iaxxx_odsp_plugin_get_status_info(
+                        struct iaxxx_odsp_hw *odsp_hw_hdl,
+                        const uint32_t inst_id,
+                        struct iaxxx_plugin_status_data *plugin_status_data);
+
+/**
+ * Get Plugin endpoint status information.
+ *
+ * Input  - odsp_hw_hdl            - Handle to odsp hw structure
+ *          inst_id                - Instance ID
+ *          ep_index               - Index of Endpoint
+ *          direction              - If Input endpoint or Output endpoint
+ *                                   0 => input, 1 => output
+ *          plugin_ep_status_data  - Pointer to struct to return plugin
+ *                                   endpoint status.
+ *
+ *
+ * Output - 0 on success, on failure < 0
+ */
+int iaxxx_odsp_plugin_get_endpoint_status(
+            struct iaxxx_odsp_hw *odsp_hw_hdl,
+            const uint32_t inst_id,
+            const uint8_t ep_index,
+            const uint8_t direction,
+            struct iaxxx_plugin_endpoint_status_data *plugin_ep_status_data);
 
 #if __cplusplus
 } // extern "C"

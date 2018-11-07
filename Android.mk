@@ -26,7 +26,9 @@ LOCAL_C_INCLUDES += external/tinyalsa/include \
 LOCAL_HEADER_LIBRARIES := libhardware_headers
 LOCAL_SHARED_LIBRARIES := liblog \
 			libcutils \
-			libtinyalsa
+			libtinyalsa \
+			libaudioroute \
+			libodsp
 LOCAL_MODULE_TAGS := optional
 ifneq (,$(findstring $(PLATFORM_VERSION), P))
 LOCAL_PROPRIETARY_MODULE := true
@@ -59,6 +61,17 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_SRC_FILES := tunnel.c
 LOCAL_SHARED_LIBRARIES := liblog \
 			libcutils
+
+include $(BUILD_SHARED_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libodsp
+LOCAL_VENDOR_MODULE := true
+LOCAL_SRC_FILES := iaxxx_odsp_hw.c
+LOCAL_SHARED_LIBRARIES := liblog \
+			libcutils
+LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -137,17 +150,6 @@ LOCAL_32_BIT_ONLY := true
 LOCAL_SHARED_LIBRARIES := liblog
 
 include $(BUILD_EXECUTABLE)
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := libodsp
-LOCAL_VENDOR_MODULE := true
-LOCAL_SRC_FILES := tests/iaxxx_odsp_hw.c
-LOCAL_SHARED_LIBRARIES := liblog \
-			libcutils
-LOCAL_MODULE_TAGS := optional
-
-include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 

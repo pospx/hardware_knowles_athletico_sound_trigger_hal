@@ -362,7 +362,7 @@ bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
     uint32_t radar_frames_initial;
     time_t start_time;
 
-    set_sensor_route(true);
+    force_set_sensor_route(true);
 
     start_time = time(NULL);
     radar_frames_initial = get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
@@ -379,7 +379,7 @@ bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
             usleep(50 * 1000); // 50ms
     } while (difftime(time(NULL), start_time) <= ping_timeout_sec);
 
-    set_sensor_route(false);
+    force_set_sensor_route(false);
 
     ALOGD("%s: %s", __func__, (ret ? "PASS" : "FAIL"));
     fprintf(stdout, "%s: %s\n", __func__, (ret ? "PASS" : "FAIL"));
@@ -539,7 +539,7 @@ int main(int argc, char *argv[]) {
         } else if ('p' == use_case) {
             ping_test(smd, ping_timeout_sec);
         } else if ('r' == use_case) {
-            set_sensor_route(route_enable);
+            force_set_sensor_route(route_enable);
         } else if ('d' == use_case) {
            read_register(smd, reg_addr);
         } else if ('w' == use_case) {

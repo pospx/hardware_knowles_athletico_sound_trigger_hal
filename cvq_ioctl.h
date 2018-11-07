@@ -17,18 +17,32 @@
 #ifndef _CVQ_IOCTL_H
 #define _CVQ_IOCTL_H
 
-int write_model(unsigned char *data, int length, bool kw_type);
-int get_event(struct iaxxx_get_event *ge);
-int setup_chip();
-int enable_mic_route(int enable);
-int set_sensor_route(bool enable);
-int set_ambient_audio_route(bool bargein);
-int tear_ambient_audio_route(void);
-int set_hotword_route(bool bargein);
-int tear_hotword_route(void);
-int set_chre_audio_route(bool bargein);
-int tear_chre_audio_route(void);
-int reset_ambient_plugin(void);
-int enable_bargein_route(bool enable);
+#include "iaxxx_odsp_hw.h"
+#include <audio_route/audio_route.h>
+#include <tinyalsa/asoundlib.h>
+
+int force_set_sensor_route(bool enable);
+int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
+                int length, bool kw_type);
+int get_event(struct iaxxx_odsp_hw *odsp_hdl,
+            struct iaxxx_get_event_info *ge);
+int setup_chip(struct iaxxx_odsp_hw *odsp_hdl);
+int enable_mic_route(struct audio_route *route_hdl, int enable);
+int set_sensor_route(struct audio_route *route_hdl, bool enable);
+int set_ambient_audio_route(struct iaxxx_odsp_hw *odsp_hdl,
+                            struct audio_route *route_hdl,
+                            bool bargein);
+int tear_ambient_audio_route(struct iaxxx_odsp_hw *odsp_hdl,
+                            struct audio_route *route_hdl,
+                            bool bargein);
+int set_hotword_route(struct iaxxx_odsp_hw *odsp_hdl,
+                    struct audio_route *route_hdl, bool bargein);
+int tear_hotword_route(struct iaxxx_odsp_hw *odsp_hdl,
+                    struct audio_route *route_hdl, bool bargein);
+int set_chre_audio_route(struct audio_route *route_hdl, bool bargein);
+int tear_chre_audio_route(struct audio_route *route_hdl, bool bargein);
+int reset_ambient_plugin(struct iaxxx_odsp_hw *odsp_hdl);
+int enable_bargein_route(struct audio_route *route_hdl, bool enable);
+int flush_model(struct iaxxx_odsp_hw *odsp_hdl, bool kw_type);
 
 #endif /* _CVQ_IOCTL_H */
