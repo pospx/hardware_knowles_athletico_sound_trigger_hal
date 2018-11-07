@@ -53,10 +53,13 @@
 
 #define DEV_NODE "/dev/iaxxx-module-celldrv"
 
+#define BGT60TR24C_NUM_REGISTERS        0x60
+
 /* copy of SensorDriver.h from athletico repository */
 #define OSLO_PRESET_CONFIG_START_INDEX  100
 #define OSLO_CONTROL_START_INDEX        200
-#define OSLO_SETTING_START_INDEX  300
+#define OSLO_SETTING_START_INDEX        300
+#define OSLO_REGISTER_RW_START_INDEX    400
 
 typedef enum
 {
@@ -135,6 +138,10 @@ typedef enum
     OSLO_PARAM_CHIRP_DIRECTION,
     OSLO_PARAM_ADC_SAMPLE_RATE,
     OSLO_PARAM_CHARGE_PUMP,
+
+    /* oslo register r/w */
+    OSLO_REGISTER_MIN = OSLO_REGISTER_RW_START_INDEX,
+    OSLO_REGISTER_MAX = OSLO_REGISTER_RW_START_INDEX + 99,
 
     SENSOR_PARAM_NUM,
 
@@ -228,6 +235,8 @@ static struct option const long_options[] =
  {"getparamid", required_argument, NULL, 'g'},
  {"ping", required_argument, NULL, 'p'},
  {"route", required_argument, NULL, 'r'},
+ {"readregister", required_argument, NULL, 'd'},
+ {"writeregister", required_argument, NULL, 'w'},
  {"help", no_argument, NULL, GETOPT_HELP_CHAR},
  {NULL, 0, NULL, 0}
 };
@@ -244,6 +253,8 @@ void usage() {
     \n\
     3) oslo_config_test -p <timeout>\n\
     4) oslo_config_test -r <1/0>\n\
+    5) oslo_config_test -d <reg_addr>\n\
+    6) oslo_config_test -w <reg_addr> -v <reg_val>\n\
     ", stdout);
 
     fputs("\n\
@@ -255,6 +266,8 @@ void usage() {
     -g          Get the value of a parameter using its <param_name>.\n\
     -p          Ping oslo sensor.\n\
     -r          Set sensor route.\n\
+    -d          Read register.\n\
+    -w          Write register.\n\
     ", stdout);
 
     fputs("\n\
@@ -374,6 +387,32 @@ bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
     return ret;
 }
 
+void read_register(struct ia_sensor_mgr *smd, uint32_t reg_addr) {
+    uint32_t reg_val;
+
+    if (reg_addr >= BGT60TR24C_NUM_REGISTERS) {
+        fprintf(stdout, "Invalid reg addr:0x%02x\n", reg_addr);
+        return;
+    }
+
+    reg_val = get_param(smd, OSLO_REGISTER_MIN + reg_addr);
+
+    ALOGD("reg[0x%02x]: 0x%06x\n", reg_addr, reg_val);
+    fprintf(stdout, "reg[0x%02x]: 0x%06x\n", reg_addr, reg_val);
+}
+
+void write_register(struct ia_sensor_mgr *smd, uint32_t reg_addr, uint32_t reg_val) {
+    if (reg_addr >= BGT60TR24C_NUM_REGISTERS) {
+        fprintf(stdout, "Invalid reg addr:0x%02x\n", reg_addr);
+        return;
+    }
+
+    set_param(smd, OSLO_REGISTER_MIN + reg_addr, reg_val);
+
+    ALOGD("Write reg[0x%02x] val:0x%06x\n", reg_addr, reg_val);
+    fprintf(stdout, "Write reg[0x%02x] val:0x%06x\n", reg_addr, reg_val);
+}
+
 int main(int argc, char *argv[]) {
     struct ia_sensor_mgr * smd;
     char use_case;
@@ -382,12 +421,15 @@ int main(int argc, char *argv[]) {
     float param_val = 0.0;
     uint32_t ping_timeout_sec;
     bool route_enable;
+    uint32_t reg_addr;
+    uint32_t reg_val;
+    bool reg_val_set = false;
 
     if (argc <= 1) {
         usage();
     }
 
-    while ((c = getopt_long (argc, argv, "s:v:g:p:r:", long_options, NULL)) != -1) {
+    while ((c = getopt_long (argc, argv, "s:v:g:p:r:d:w:", long_options, NULL)) != -1) {
         switch (c) {
         case 's':
             if (NULL == optarg) {
@@ -412,6 +454,9 @@ int main(int argc, char *argv[]) {
                 if ('s' == use_case) {
                     param_val = strtof(optarg, NULL);
                     use_case = 'v';
+                } else if ('w' == use_case) {
+                    reg_val = strtoul(optarg, NULL, 0);
+                    reg_val_set = true;
                 } else {
                     fprintf(stderr, "Incorrect usage, v option should be the second option");
                     usage();
@@ -451,6 +496,24 @@ int main(int argc, char *argv[]) {
                 use_case = 'r';
             }
         break;
+        case 'd':
+            if (NULL == optarg) {
+                fprintf(stderr, "Incorrect usage, d option requires an argument");
+                usage();
+            } else {
+                reg_addr = strtoul(optarg, NULL, 0);
+                use_case = 'd';
+            }
+        break;
+        case 'w':
+            if (NULL == optarg) {
+                fprintf(stderr, "Incorrect usage, w option requires an argument");
+                usage();
+            } else {
+                reg_addr = strtoul(optarg, NULL, 0);
+                use_case = 'w';
+            }
+        break;
         case GETOPT_HELP_CHAR:
         default:
             usage();
@@ -477,6 +540,11 @@ int main(int argc, char *argv[]) {
             ping_test(smd, ping_timeout_sec);
         } else if ('r' == use_case) {
             set_sensor_route(route_enable);
+        } else if ('d' == use_case) {
+           read_register(smd, reg_addr);
+        } else if ('w' == use_case) {
+           if (reg_val_set)
+             write_register(smd, reg_addr, reg_val);
         }
 
         if (smd->dev_node) {
