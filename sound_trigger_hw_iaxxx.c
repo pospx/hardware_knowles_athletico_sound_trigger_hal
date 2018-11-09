@@ -232,6 +232,19 @@ static int find_handle_for_kw_id(
     return i;
 }
 
+static bool is_any_model_active(struct knowles_sound_trigger_device *stdev) {
+    int i = 0;
+    for (i = 0; i < MAX_MODELS; i++) {
+        if (stdev->models[i].is_active == true) {
+            break;
+        }
+    }
+    if (i == MAX_MODELS) {
+        return false;
+    } else
+        return true;
+}
+
 static void reg_hal_event_session(
                                 struct sound_trigger_recognition_config *config,
                                 sound_model_handle_t handle)
@@ -365,6 +378,93 @@ static void stdev_close_term_sock(struct knowles_sound_trigger_device *stdev)
     }
 }
 
+static int set_package_route(struct knowles_sound_trigger_device *stdev,
+                            sound_trigger_uuid_t uuid,
+                            bool bargein)
+{
+    int ret = 0;
+    /*
+     *[TODO] Add correct error return value for package route
+     * b/119390722 for tracing.
+     */
+    if (check_uuid_equality(uuid, stdev->chre_model_uuid))
+        set_chre_audio_route(stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->ambient_model_uuid))
+        set_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->hotword_model_uuid))
+        set_hotword_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+
+    return ret;
+}
+
+static int tear_package_route(struct knowles_sound_trigger_device *stdev,
+                            sound_trigger_uuid_t uuid,
+                            bool bargein)
+{
+    int ret = 0;
+    /*
+     *[TODO] Add correct error return value for package route
+     * b/119390722 for tracing.
+     */
+    if (check_uuid_equality(uuid, stdev->chre_model_uuid))
+        tear_chre_audio_route(stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->ambient_model_uuid))
+        tear_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->hotword_model_uuid))
+        tear_hotword_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+
+    return ret;
+}
+
+static int handle_input_source(struct knowles_sound_trigger_device *stdev,
+                            bool enable)
+{
+    int ret = 0;
+    /*
+     *[TODO] Add correct error return value for input source route
+     * b/119390722 for tracing.
+     */
+    if (enable) {
+        if (stdev->is_mic_route_enabled == false) {
+            stdev->is_mic_route_enabled = true;
+            if (enable_mic_route(stdev->route_hdl, true)) {
+                ALOGE("failed to enable mic route");
+                stdev->is_mic_route_enabled = false;
+            }
+        }
+        if (stdev->is_music_playing == true &&
+            stdev->is_bargein_route_enabled == false) {
+            // Enable the bargein route if not enabled
+            ALOGD("Enabling bargein route");
+            stdev->is_bargein_route_enabled = true;
+            enable_bargein_route(stdev->route_hdl,
+                                stdev->is_bargein_route_enabled);
+        }
+    } else {
+        if (!is_any_model_active(stdev)) {
+            ALOGD("None of keywords are active");
+            if (stdev->is_music_playing == true &&
+                stdev->is_bargein_route_enabled == true) {
+                // Just disable the route and update the route status but retain
+                // bargein status
+                stdev->is_bargein_route_enabled = false;
+                enable_bargein_route(stdev->route_hdl,
+                                    stdev->is_bargein_route_enabled);
+            }
+
+            if (stdev->is_mic_route_enabled == true) {
+                stdev->is_mic_route_enabled = false;
+                if (enable_mic_route(stdev->route_hdl, false)) {
+                    ALOGE("failed to disable mic route");
+                    stdev->is_mic_route_enabled = true;
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
 // stdev needs to be locked before calling this function
 static int restart_recognition(struct knowles_sound_trigger_device *stdev)
 {
@@ -403,25 +503,8 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
                 }
             }
         }
-
-        if (stdev->models[i].is_active == true) {
-            if (check_uuid_equality(stdev->models[i].uuid,
-                                    stdev->ambient_model_uuid)) {
-                // set ambient route
-                set_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl,
-                                        stdev->is_music_playing);
-            } else if (check_uuid_equality(stdev->models[i].uuid,
-                                    stdev->hotword_model_uuid)) {
-                // set hotword route
-                set_hotword_route(stdev->odsp_hdl, stdev->route_hdl,
-                                stdev->is_music_playing);
-            } else if (check_uuid_equality(stdev->models[i].uuid,
-                                    stdev->chre_model_uuid)) {
-                // set chre route
-                set_chre_audio_route(stdev->route_hdl,
-                                    stdev->is_music_playing);
-            }
-        }
+        if (stdev->models[i].is_active == true)
+            set_package_route(stdev, stdev->models[i].uuid, stdev->is_music_playing);
     }
 
     return err;
@@ -735,21 +818,7 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
                                 stdev->chre_model_uuid)) {
         // setup the CHRE route and Mic route.
         stdev->models[i].is_active = true;
-        if (stdev->is_mic_route_enabled == false) {
-            stdev->is_mic_route_enabled = true;
-            if (enable_mic_route(stdev->route_hdl, true)) {
-                ALOGE("failed to enable mic route");
-                stdev->is_mic_route_enabled = false;
-            }
-        }
-        if (stdev->is_music_playing == true &&
-            stdev->is_bargein_route_enabled == false) {
-            // Enable the bargein route if not enabled
-            ALOGD("Enabling bargein route");
-            stdev->is_bargein_route_enabled = true;
-            enable_bargein_route(stdev->route_hdl,
-                                stdev->is_bargein_route_enabled);
-        }
+        handle_input_source(stdev, true);
         set_chre_audio_route(stdev->route_hdl, stdev->is_music_playing);
     } else {
         ALOGE("%s: ERROR: unknown keyword model file", __func__);
@@ -782,7 +851,6 @@ static int stdev_unload_sound_model(const struct sound_trigger_hw_device *dev,
     struct knowles_sound_trigger_device *stdev =
         (struct knowles_sound_trigger_device *)dev;
     int ret = 0;
-    int i = 0;
     ALOGD("+%s handle %d+", __func__, handle);
     pthread_mutex_lock(&stdev->lock);
 
@@ -812,33 +880,7 @@ static int stdev_unload_sound_model(const struct sound_trigger_hw_device *dev,
         // Disable the CHRE route
         stdev->models[handle].is_active = false;
         tear_chre_audio_route(stdev->route_hdl, stdev->is_music_playing);
-        for (i = 0; i < MAX_MODELS; i++) {
-            if (stdev->models[i].is_active == true) {
-                break;
-            }
-        }
-
-        if (i == MAX_MODELS) {
-            ALOGD("None of keywords are active");
-            if (stdev->is_music_playing == true &&
-                stdev->is_bargein_route_enabled == true) {
-                // Just disable the route and update the route status but retain
-                // bargein status
-                ALOGD("Disabling bargein route");
-                stdev->is_bargein_route_enabled = false;
-                enable_bargein_route(stdev->route_hdl,
-                                     stdev->is_bargein_route_enabled);
-            }
-
-            if (stdev->is_mic_route_enabled == true) {
-                ALOGD("Disabling mic route");
-                stdev->is_mic_route_enabled = false;
-                if (enable_mic_route(stdev->route_hdl, false)) {
-                    ALOGE("failed to disable mic route");
-                    stdev->is_mic_route_enabled = true;
-                }
-            }
-        }
+        handle_input_source(stdev, false);
     }
 
     stdev->models[handle].sound_model_callback = NULL;
@@ -919,32 +961,9 @@ static int stdev_start_recognition(
     }
     model->is_active = true;
 
-    if (stdev->is_mic_route_enabled == false) {
-        stdev->is_mic_route_enabled = true;
-        if (enable_mic_route(stdev->route_hdl, true)) {
-            ALOGE("failed to enable mic route");
-            stdev->is_mic_route_enabled = false;
-        }
-    }
+    handle_input_source(stdev, true);
 
-    if (stdev->is_music_playing == true &&
-        stdev->is_bargein_route_enabled == false) {
-        // Enable the bargein route if not enabled
-        ALOGD("Enabling bargein route");
-        stdev->is_bargein_route_enabled = true;
-        enable_bargein_route(stdev->route_hdl,
-                            stdev->is_bargein_route_enabled);
-    }
-
-    if (check_uuid_equality(model->uuid, stdev->ambient_model_uuid)) {
-        // set ambient route
-        set_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl,
-                                stdev->is_music_playing);
-    } else if (check_uuid_equality(model->uuid, stdev->hotword_model_uuid)) {
-        // set hotword route
-        set_hotword_route(stdev->odsp_hdl, stdev->route_hdl,
-                        stdev->is_music_playing);
-    }
+    set_package_route(stdev, model->uuid, stdev->is_music_playing);
 
 exit:
     pthread_mutex_unlock(&stdev->lock);
@@ -959,7 +978,6 @@ static int stdev_stop_recognition(
     struct knowles_sound_trigger_device *stdev =
         (struct knowles_sound_trigger_device *)dev;
     int status = 0;
-    int i = 0;
     struct model_info *model = &stdev->models[handle];
     ALOGD("+%s sound model %d+", __func__, handle);
     pthread_mutex_lock(&stdev->lock);
@@ -979,41 +997,9 @@ static int stdev_stop_recognition(
     }
     model->is_active = false;
 
-    if (check_uuid_equality(model->uuid, stdev->ambient_model_uuid)) {
-        tear_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl,
-                                stdev->is_music_playing);
-    } else if (check_uuid_equality(model->uuid, stdev->hotword_model_uuid)) {
-        tear_hotword_route(stdev->odsp_hdl, stdev->route_hdl,
-                        stdev->is_music_playing);
-    }
+    tear_package_route(stdev, model->uuid, stdev->is_music_playing);
 
-    for (i = 0; i < MAX_MODELS; i++) {
-        if (stdev->models[i].is_active == true) {
-            break;
-        }
-    }
-
-    if (i == MAX_MODELS) {
-        ALOGD("None of keywords are active");
-        if (stdev->is_music_playing == true &&
-            stdev->is_bargein_route_enabled == true) {
-            // Just disable the route and update the route status but retain
-            // bargein status
-            ALOGD("Disabling bargein route");
-            stdev->is_bargein_route_enabled = false;
-            enable_bargein_route(stdev->route_hdl,
-                                stdev->is_bargein_route_enabled);
-        }
-
-        if (stdev->is_mic_route_enabled == true) {
-            ALOGD("Disabling mic route");
-            stdev->is_mic_route_enabled = false;
-            if (enable_mic_route(stdev->route_hdl, false)) {
-                ALOGE("failed to disable mic route");
-                stdev->is_mic_route_enabled = true;
-            }
-        }
-    }
+    handle_input_source(stdev, false);
 
 exit:
     pthread_mutex_unlock(&stdev->lock);
@@ -1063,175 +1049,6 @@ audio_io_handle_t stdev_get_audio_handle()
         __func__, g_stdev.last_keyword_detected_config->capture_handle);
 
     return g_stdev.last_keyword_detected_config->capture_handle;
-}
-
-__attribute__ ((visibility ("default")))
-void stdev_audio_record_state(bool enabled) {
-    struct knowles_sound_trigger_device *stdev = &g_stdev;
-    int i = 0;
-
-    pthread_mutex_lock(&stdev->lock);
-    ALOGI("%s: Entering enabled %d", __func__, enabled);
-
-    if (enabled == true) {
-        // Recording is about to start so disable our mic route and
-        // model files that are still active.
-        for (i = 0; i < MAX_MODELS; i++) {
-            if (stdev->models[i].is_active == true) {
-                if (check_uuid_equality(stdev->models[i].uuid,
-                                        stdev->ambient_model_uuid)) {
-                    tear_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl,
-                                            stdev->is_music_playing);
-                } else if (check_uuid_equality(stdev->models[i].uuid,
-                                            stdev->hotword_model_uuid)) {
-                    tear_hotword_route(stdev->odsp_hdl, stdev->route_hdl,
-                                    stdev->is_music_playing);
-                }
-                stdev->models[i].is_active = false;
-            }
-        }
-
-        if (stdev->is_music_playing == true &&
-            stdev->is_bargein_route_enabled == true) {
-            // Just disable the route and update the route status but retain
-            // music playing status
-            stdev->is_bargein_route_enabled = false;
-            enable_bargein_route(stdev->route_hdl,
-                                 stdev->is_bargein_route_enabled);
-        }
-
-        if (stdev->is_mic_route_enabled == true) {
-            ALOGE("Disabling the mic route");
-            stdev->is_mic_route_enabled = false;
-            if (enable_mic_route(stdev->route_hdl, false)) {
-                ALOGE("failed to disable mic route");
-                stdev->is_mic_route_enabled = true;
-            }
-        }
-    } else {
-        // Recording is about to end so enable mic route if it was previously
-        // disabled
-        // TBD check Is this required? Because it will get enabled again in
-        // start recognition
-    }
-
-    ALOGI("%s: Exiting", __func__);
-
-    pthread_mutex_unlock(&stdev->lock);
-}
-
-__attribute__ ((visibility ("default")))
-void stdev_set_bargein(bool enable) {
-    struct knowles_sound_trigger_device *stdev = &g_stdev;
-    int i;
-
-    pthread_mutex_lock(&stdev->lock);
-    ALOGD("%s: Entering enable %d", __func__, enable);
-    if (stdev->is_music_playing != enable) {
-        stdev->is_music_playing = enable;
-        if (stdev->is_mic_route_enabled == true) {
-        // Atleast one keyword model is active so update the routes
-        // Check if the bargein route is enabled if not enable bargein route
-        // Check each model, if it is active then update it's route
-            if (stdev->is_music_playing == true) {
-                ALOGI("Bargein should be enabled");
-                if (stdev->is_bargein_route_enabled == false) {
-                    stdev->is_bargein_route_enabled = true;
-                    enable_bargein_route(stdev->route_hdl,
-                                        stdev->is_bargein_route_enabled);
-                    // Check each model, if it is active then update it's route
-                    for (i = 0; i < MAX_MODELS; i++) {
-                        if (stdev->models[i].is_active == true) {
-                            if (check_uuid_equality(stdev->models[i].uuid,
-                                                stdev->ambient_model_uuid)) {
-                                // teardown the non bargein ambient route
-                                tear_ambient_audio_route(
-                                                    stdev->odsp_hdl,
-                                                    stdev->route_hdl,
-                                                    !stdev->is_music_playing);
-                                // resetup the ambient route with bargein
-                                set_ambient_audio_route(
-                                                    stdev->odsp_hdl,
-                                                    stdev->route_hdl,
-                                                    stdev->is_music_playing);
-                            } else if (check_uuid_equality(
-                                                stdev->models[i].uuid,
-                                                stdev->hotword_model_uuid)) {
-                                // teardown the non bargein hotword route
-                                tear_hotword_route(stdev->odsp_hdl,
-                                                stdev->route_hdl,
-                                                !stdev->is_music_playing);
-                                // resetup the hotword route with bargein
-                                set_hotword_route(stdev->odsp_hdl,
-                                                stdev->route_hdl,
-                                                stdev->is_music_playing);
-                            } else if (check_uuid_equality(
-                                                    stdev->models[i].uuid,
-                                                    stdev->chre_model_uuid)) {
-                                // teardown the non bargein chre route
-                                tear_chre_audio_route(stdev->route_hdl,
-                                                    !stdev->is_music_playing);
-                                // resetup the chre route with bargein
-                                set_chre_audio_route(stdev->route_hdl,
-                                                    stdev->is_music_playing);
-                            }
-                        }
-                    }
-                }
-            } else {
-                ALOGI("Bargein should be disabled");
-                if (stdev->is_bargein_route_enabled == true) {
-                    // Check each model, if it is active then update it's route
-                    // Disable the bargein route
-                    for (i = 0; i < MAX_MODELS; i++) {
-                        if (stdev->models[i].is_active == true) {
-                            if (check_uuid_equality(
-                                                stdev->models[i].uuid,
-                                                stdev->ambient_model_uuid)) {
-                                // teardown the ambient route with bargein
-                                tear_ambient_audio_route(
-                                                    stdev->odsp_hdl,
-                                                    stdev->route_hdl,
-                                                    !stdev->is_music_playing);
-                                // resetup the ambient route with out bargein
-                                set_ambient_audio_route(
-                                                    stdev->odsp_hdl,
-                                                    stdev->route_hdl,
-                                                    stdev->is_music_playing);
-                            } else if (check_uuid_equality(
-                                                stdev->models[i].uuid,
-                                                stdev->hotword_model_uuid)) {
-                                // teardown the hotword route with bargein
-                                tear_hotword_route(stdev->odsp_hdl,
-                                                stdev->route_hdl,
-                                                !stdev->is_music_playing);
-                                // resetup the hotword route with out bargein
-                                set_hotword_route(stdev->odsp_hdl,
-                                                stdev->route_hdl,
-                                                stdev->is_music_playing);
-                            } else if (check_uuid_equality(
-                                                    stdev->models[i].uuid,
-                                                    stdev->chre_model_uuid)) {
-                                // teardown the chre route with bargein
-                                tear_chre_audio_route(stdev->route_hdl,
-                                                    !stdev->is_music_playing);
-                                // resetup the chre route with out bargein
-                                set_chre_audio_route(stdev->route_hdl,
-                                                    stdev->is_music_playing);
-                            }
-                        }
-                    }
-                    stdev->is_bargein_route_enabled = false;
-                    enable_bargein_route(stdev->route_hdl,
-                                        stdev->is_bargein_route_enabled);
-                }
-            }
-        }
-    }
-
-    ALOGD("%s: Exiting", __func__);
-
-    pthread_mutex_unlock(&stdev->lock);
 }
 
 static int open_streaming_lib(struct knowles_sound_trigger_device *stdev) {
@@ -1538,6 +1355,7 @@ int sound_trigger_hw_call_back(audio_event_type_t event,
                             struct audio_event_info *config)
 {
     int ret = 0;
+    int i = 0;
     struct knowles_sound_trigger_device *stdev = &g_stdev;
     if (!stdev)
         return -ENODEV;
@@ -1550,23 +1368,107 @@ int sound_trigger_hw_call_back(audio_event_type_t event,
     switch (event) {
     case AUDIO_EVENT_CAPTURE_DEVICE_INACTIVE:
     case AUDIO_EVENT_CAPTURE_DEVICE_ACTIVE:
-    case AUDIO_EVENT_PLAYBACK_STREAM_INACTIVE:
-    case AUDIO_EVENT_PLAYBACK_STREAM_ACTIVE:
+        /*
+         * [TODO] handle capture device on/off event
+         * There might be concurrency devices usecase.
+         */
+        break;
     case AUDIO_EVENT_CAPTURE_STREAM_INACTIVE:
+        /*
+         * [TODO] Recording is end so enable mic route if it was previously
+         *        disabled.
+         * TBD check Is this required? Because it will get enabled again in
+         * start recognition
+         */
+        ALOGD("%s: handle capture stream inactive", __func__);
+        break;
     case AUDIO_EVENT_CAPTURE_STREAM_ACTIVE:
         /*
-         * [TODO] handle playback stream on/off event
-         * That need to enable AEC plugin in codec
+         * Handle capture stream on event
+         * That stop all recognition in codec
          */
+        ALOGD("%s: handle capture stream active", __func__);
+        pthread_mutex_lock(&stdev->lock);
 
-        /*
-         * [TODO] handle capture stream on/off event
-         * That pause all recognition in codec
-         * and resume after capture stream off
-         */
-        ALOGD("%s: handle audio concurrency %d", __func__, event);
+        // Disable mic route.
+        for (i = 0; i < MAX_MODELS; i++) {
+            if (stdev->models[i].is_active == true) {
+                tear_package_route(stdev, stdev->models[i].uuid,
+                                stdev->is_music_playing);
+                stdev->models[i].is_active = false;
+            }
+        }
+        handle_input_source(stdev, false);
+
+        pthread_mutex_unlock(&stdev->lock);
+
         break;
+    case AUDIO_EVENT_PLAYBACK_STREAM_INACTIVE:
+        ALOGD("%s: handle playback stream inactive", __func__);
+        pthread_mutex_lock(&stdev->lock);
 
+        if (stdev->is_music_playing != false) {
+            stdev->is_music_playing = false;
+            if (stdev->is_mic_route_enabled != false) {
+                // Atleast one keyword model is active so update the routes
+                // Check if the bargein route is enabled if not enable bargein route
+                // Check each model, if it is active then update it's route
+                if (stdev->is_bargein_route_enabled != false) {
+                    ALOGD("Bargein disable");
+                    // Check each model, if it is active then update it's route
+                    // Disable the bargein route
+                    for (i = 0; i < MAX_MODELS; i++) {
+                        if (stdev->models[i].is_active == true) {
+                            // teardown the package route with bargein
+                            tear_package_route(stdev, stdev->models[i].uuid,
+                                            !stdev->is_music_playing);
+                            // resetup the package route with out bargein
+                            set_package_route(stdev, stdev->models[i].uuid,
+                                            stdev->is_music_playing);
+                        }
+                    }
+                    stdev->is_bargein_route_enabled = false;
+                    enable_bargein_route(stdev->route_hdl,
+                                        stdev->is_bargein_route_enabled);
+                }
+            }
+        } else {
+            ALOGD("%s: STHAL setup playback Inactive alrealy", __func__);
+        }
+        pthread_mutex_unlock(&stdev->lock);
+        break;
+    case AUDIO_EVENT_PLAYBACK_STREAM_ACTIVE:
+        ALOGD("%s: handle playback stream active", __func__);
+        pthread_mutex_lock(&stdev->lock);
+        if (stdev->is_music_playing != true) {
+            stdev->is_music_playing = true;
+            if (stdev->is_mic_route_enabled != false) {
+                // Atleast one keyword model is active so update the routes
+                // Check if the bargein route is enabled if not enable bargein route
+                // Check each model, if it is active then update it's route
+                if (stdev->is_bargein_route_enabled != true) {
+                    ALOGD("Bargein enable");
+                    stdev->is_bargein_route_enabled = true;
+                    enable_bargein_route(stdev->route_hdl,
+                                        stdev->is_bargein_route_enabled);
+                    // Check each model, if it is active then update it's route
+                    for (i = 0; i < MAX_MODELS; i++) {
+                        if (stdev->models[i].is_active == true) {
+                            // teardown the package route without bargein
+                            tear_package_route(stdev, stdev->models[i].uuid,
+                                            !stdev->is_music_playing);
+                            // resetup the package route with bargein
+                            set_package_route(stdev, stdev->models[i].uuid,
+                                            stdev->is_music_playing);
+                        }
+                    }
+                }
+            }
+        } else {
+            ALOGD("%s: STHAL setup playback active alrealy", __func__);
+        }
+        pthread_mutex_unlock(&stdev->lock);
+        break;
     case AUDIO_EVENT_STOP_LAB:
         /* Close Stream Driver */
         ALOGD("%s: close streaming %d", __func__, event);
