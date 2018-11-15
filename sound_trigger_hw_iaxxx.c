@@ -26,6 +26,7 @@
 #include <sys/prctl.h>
 #include <cutils/log.h>
 #include <cutils/uevent.h>
+#include <cutils/properties.h>
 #include <math.h>
 #include <dlfcn.h>
 #include <sys/types.h>
@@ -1243,36 +1244,51 @@ static int find_sound_card() {
     int retry_num = 0, snd_card_num = 0, ret = -1;
     const char *snd_card_name;
     struct mixer *mixer = NULL;
-
+    bool card_verifed[MAX_SND_CARD] = {false};
+    const int retry_limit = property_get_int32("audio.snd_card.open.retries",
+                                            RETRY_NUMBER);
     ALOGD("+%s+", __func__);
-    while (snd_card_num < MAX_SND_CARD) {
-        mixer = mixer_open(snd_card_num);
-        while (!mixer && retry_num < RETRY_NUMBER) {
+
+    for (;;) {
+        if (snd_card_num >= MAX_SND_CARD) {
+            if (retry_num++ >= retry_limit) {
+                ALOGE("%s: iaxxx sound card not found", __func__);
+                goto exit;
+            }
+            snd_card_num = 0;
             usleep(RETRY_US);
-            mixer = mixer_open(snd_card_num);
-            retry_num++;
+            continue;
+        }
+        if (card_verifed[snd_card_num]) {
+            snd_card_num++;
+            continue;
         }
 
+        mixer = mixer_open(snd_card_num);
         if (!mixer) {
-            ALOGE("%s: Unable to open the mixer card: %d", __func__,
-                    snd_card_num);
-            retry_num = 0;
             snd_card_num++;
             continue;
         }
 
         snd_card_name = mixer_get_name(mixer);
-        mixer_close(mixer);
-
-        if(strstr(snd_card_name, CARD_NAME)){
-            ALOGD("Found %s at %d", snd_card_name, snd_card_num);
+        if (strstr(snd_card_name, CARD_NAME)) {
+            ALOGD("%s: find card %d has iaxxx - %s",
+                __func__, snd_card_num, snd_card_name);
             ret = snd_card_num;
             break;
-        } else {
-            snd_card_num++;
-            continue;
         }
+
+        ALOGD("%s: sound card %s does NOT have iaxxx", __func__, snd_card_name);
+        mixer_close(mixer);
+        mixer = NULL;
+        card_verifed[snd_card_num] = true;
+        snd_card_num++;
     }
+
+exit:
+    if (mixer)
+        mixer_close(mixer);
+
     ALOGD("-%s-", __func__);
     return ret;
 }
