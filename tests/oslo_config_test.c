@@ -77,6 +77,7 @@ typedef enum
     OSLO_CONFIG_PRESENCE_SLOW,
     OSLO_CONFIG_FACTORY_PRESENCE,
     OSLO_CONFIG_FACTORY_REACH,
+    OSLO_CONFIG_CW_MODE,
 
     /* oslo control - restart oslo when settings change */
     OSLO_CONTROL_RESTART = OSLO_CONTROL_START_INDEX,
@@ -163,6 +164,7 @@ static const oslo_settings_t oslo_settings[] =
     {OSLO_CONFIG_PRESENCE_SLOW,                             "config_presence_slow"},
     {OSLO_CONFIG_FACTORY_PRESENCE,                          "config_factory_presence"},
     {OSLO_CONFIG_FACTORY_REACH,                             "config_factory_reach"},
+    {OSLO_CONFIG_CW_MODE,                                   "config_cw_mode"},
     {OSLO_CONTROL_RESTART,                                  "oslo_control_restart"},
     {OSLO_CONTROL_STRIP_HEADERS,                            "oslo_control_strip_headers"},
     {OSLO_CONTROL_SLPI_INT,                                 "oslo_control_slpi_interrupt"},
