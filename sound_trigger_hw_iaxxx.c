@@ -73,7 +73,7 @@
 #define HOTWORD_AUDIO_MODEL  "7038ddc8-30f2-11e6-b0ac-40a8f03d3f15"
 #define SENSOR_MANAGER_MODEL "5c0c296d-204c-4c2b-9f85-e50746caf914"
 #define AMBIENT_AUDIO_MODEL  "6ac81359-2dc2-4fea-a0a0-bd378ed6da4f"
-#define CHRE_AUDIO_MODEL     "7e0d396d-02ac-4524-58f9-a67056ebe847"
+#define CHRE_AUDIO_MODEL     "57caddb1-acdb-4dce-8cb0-2e95a2313aee"
 
 #define HOTWORD_MODEL (0)
 #define AMBIENT_MODEL (1)
