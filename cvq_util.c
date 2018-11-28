@@ -35,6 +35,7 @@
 #define HOTWORD_EVT_SRC_ID    IAXXX_SYSID_PLUGIN_INSTANCE_0
 #define AMBIENT_EVT_SRC_ID    IAXXX_SYSID_PLUGIN_INSTANCE_5
 #define OSLO_EVT_SRC_ID       IAXXX_SYSID_PLUGIN_INSTANCE_3
+#define CHRE_EVT_SRC_ID       IAXXX_SYSID_PLUGIN_INSTANCE_6
 
 #define HOTWORD_PKG_ID      11
 #define HOTWORD_PLUGIN_IDX  0
@@ -70,6 +71,8 @@
 
 #define CHRE_PLUGIN_IDX      0
 #define CHRE_INSTANCE_ID     6
+#define CHRE_EVT_ID          3
+#define CHRE_EVT_PARAM_ID    8
 
 #define SND_MODEL_UNLOAD_PARAM_ID   5
 #define HOTWORD_UNLOAD_PARAM_VAL    1
@@ -752,7 +755,41 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
     if (err == -1) {
         ALOGE("%s: ERROR: Ambient set param %d(%s)",
             __func__, errno, strerror(errno));
+        return err;
+     }
+
+    /* Param ID is 8 for Buffer package
+     * 60480 is in bytes calculated for 1.8sec buffer threshold
+     * 640/2 = 320 for 10ms frame in Q15 format.
+     * 320+16 = 336 is each frame plus tunnel header
+     * 336 * 180 = 60480 which is 1.8 sec buffer in bytes
+     */
+    err = iaxxx_odsp_plugin_set_parameter(odsp_hdl, CHRE_INSTANCE_ID,
+                                        CHRE_EVT_PARAM_ID, 60480,
+                                        IAXXX_HMD_BLOCK_ID);
+    if (err == -1) {
+        ALOGE("%s: ERROR: CHRE buffer set param failed with error %d(%s)",
+            __func__, errno, strerror(errno));
+        return err;
     }
+
+    err = iaxxx_odsp_plugin_setevent(odsp_hdl, CHRE_INSTANCE_ID,
+                                    CHRE_EVT_PARAM_ID, IAXXX_HMD_BLOCK_ID);
+    if (err == -1) {
+        ALOGE("%s: ERROR: CHRE set event failed with error %d(%s)",
+            __func__, errno, strerror(errno));
+        return err;
+    }
+
+    // Subscribe for events
+    err = iaxxx_odsp_evt_subscribe(odsp_hdl, CHRE_EVT_SRC_ID,
+                                CHRE_EVT_ID, IAXXX_SYSID_HOST_1, 0);
+    if (err == -1) {
+        ALOGE("%s: ERROR: ODSP_EVENT_SUBSCRIBE (for event_id %d, src_id %d)"
+            "  IOCTL failed with error %d(%s)", __func__, CHRE_EVT_ID,
+            CHRE_EVT_SRC_ID, errno, strerror(errno));
+    }
+
     ALOGV("-%s-", __func__);
     return err;
 }
