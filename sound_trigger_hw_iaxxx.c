@@ -51,6 +51,7 @@
 
 #define OK_GOOGLE_KW_ID             (0)
 #define AMBIENT_KW_ID               (1)
+#define ENTITY_KW_ID                (2)
 
 #define IAXXX_VQ_EVENT_STR          "IAXXX_VQ_EVENT"
 #define IAXXX_RECOVERY_EVENT_STR    "IAXXX_RECOVERY_EVENT"
@@ -74,9 +75,11 @@
 #define SENSOR_MANAGER_MODEL "5c0c296d-204c-4c2b-9f85-e50746caf914"
 #define AMBIENT_AUDIO_MODEL  "6ac81359-2dc2-4fea-a0a0-bd378ed6da4f"
 #define CHRE_AUDIO_MODEL     "57caddb1-acdb-4dce-8cb0-2e95a2313aee"
+#define ENTITY_AUDIO_MODEL   "12caddb1-acdb-4dce-8cb0-2e95a2313aee"
 
 #define HOTWORD_MODEL (0)
 #define AMBIENT_MODEL (1)
+#define ENTITY_MODEL  (2)
 
 static const struct sound_trigger_properties hw_properties = {
     "Knowles Electronics",      // implementor
@@ -136,6 +139,7 @@ struct knowles_sound_trigger_device {
     sound_trigger_uuid_t sensor_model_uuid;
     sound_trigger_uuid_t ambient_model_uuid;
     sound_trigger_uuid_t chre_model_uuid;
+    sound_trigger_uuid_t entity_model_uuid;
 
     int last_detected_model_type;
     bool is_mic_route_enabled;
@@ -335,13 +339,15 @@ static char *stdev_keyphrase_event_alloc(sound_model_handle_t handle,
     return data;
 }
 
-static char *stdev_generic_event_alloc(int model_handle)
+static char *stdev_generic_event_alloc(int model_handle, void *payload,
+                                    unsigned int payload_size)
 {
     char *data;
     struct sound_trigger_generic_recognition_event *event;
 
     data = (char *)calloc(1,
-                        sizeof(struct sound_trigger_generic_recognition_event));
+                        sizeof(struct sound_trigger_generic_recognition_event) +
+                        payload_size);
     if (!data) {
         ALOGE("%s: Failed to allocate memory for recog event", __func__);
         return NULL;
@@ -361,6 +367,15 @@ static char *stdev_generic_event_alloc(int model_handle)
     event->common.audio_config.sample_rate = 16000;
     event->common.audio_config.channel_mask = AUDIO_CHANNEL_IN_MONO;
     event->common.audio_config.format = AUDIO_FORMAT_PCM_16_BIT;
+
+    if (payload && payload_size > 0) {
+        ALOGD("%s: Attach payload in the event", __func__);
+        event->common.data_size = payload_size;
+        event->common.data_offset =
+                        sizeof(struct sound_trigger_generic_recognition_event);
+
+        memcpy((data + event->common.data_offset), payload, payload_size);
+    }
 
     return data;
 }
@@ -393,6 +408,8 @@ static int set_package_route(struct knowles_sound_trigger_device *stdev,
         set_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
     else if (check_uuid_equality(uuid, stdev->hotword_model_uuid))
         set_hotword_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->entity_model_uuid))
+        set_entity_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
 
     return ret;
 }
@@ -412,6 +429,8 @@ static int tear_package_route(struct knowles_sound_trigger_device *stdev,
         tear_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
     else if (check_uuid_equality(uuid, stdev->hotword_model_uuid))
         tear_hotword_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->entity_model_uuid))
+        tear_entity_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
 
     return ret;
 }
@@ -491,7 +510,9 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
             } else if (check_uuid_equality(stdev->models[i].uuid,
                                     stdev->ambient_model_uuid) ||
                        check_uuid_equality(stdev->models[i].uuid,
-                                    stdev->hotword_model_uuid)) {
+                                    stdev->hotword_model_uuid) ||
+                       check_uuid_equality(stdev->models[i].uuid,
+                                    stdev->entity_model_uuid)) {
                 err = write_model(stdev->odsp_hdl,
                                 stdev->models[i].data,
                                 stdev->models[i].data_sz,
@@ -545,6 +566,8 @@ static void *callback_thread_loop(void *context)
     int i, n;
     int kwid = 0;
     struct iaxxx_get_event_info ge;
+    void *payload = NULL;
+    unsigned int payload_size = 0;
 
     ALOGI("%s", __func__);
     prctl(PR_SET_NAME, (unsigned long)"sound trigger callback", 0, 0, 0);
@@ -622,6 +645,13 @@ static void *callback_thread_loop(void *context)
                             stdev->last_detected_model_type = AMBIENT_MODEL;
                             reset_ambient_plugin(stdev->odsp_hdl);
                             break;
+                        } else if (ge.event_id == ENTITY_KW_ID) {
+                            ALOGD("Eventid received is ENTITY_KW_ID %d",
+                                ENTITY_KW_ID);
+                            kwid = ENTITY_KW_ID;
+                            //get same buffer data
+                            stdev->last_detected_model_type = AMBIENT_MODEL;
+                            break;
                         } else {
                             ALOGE("Unknown event id received, ignoring %d",
                                 ge.event_id);
@@ -647,9 +677,28 @@ static void *callback_thread_loop(void *context)
             }
 
             if (ge.event_id == OK_GOOGLE_KW_ID ||
-                ge.event_id == AMBIENT_KW_ID) {
+                ge.event_id == AMBIENT_KW_ID ||
+                ge.event_id == ENTITY_KW_ID) {
                 ALOGD("%s: Keyword ID %d", __func__, kwid);
 
+                if (ge.data != 0 && ge.event_id == ENTITY_KW_ID) {
+                    ALOGD("Size of payload is %d", ge.data);
+                    payload_size = ge.data;
+                    payload = malloc(payload_size);
+                    if (payload != NULL) {
+                        err = get_entity_param_blk(stdev->odsp_hdl,
+                                            payload,
+                                            payload_size);
+                        if (err != 0) {
+                            ALOGE("Failed to get payload data");
+                            free(payload);
+                            payload = NULL;
+                            payload_size = 0;
+                        }
+                    } else {
+                        ALOGE("Failed to allocate memory for payload");
+                    }
+                }
                 int idx = find_handle_for_kw_id(stdev, kwid);
                 if (idx < MAX_MODELS && stdev->models[idx].is_active == true) {
                     if (stdev->models[idx].type == SOUND_MODEL_TYPE_KEYPHRASE) {
@@ -679,7 +728,9 @@ static void *callback_thread_loop(void *context)
                         struct sound_trigger_generic_recognition_event *event;
                         event = (struct sound_trigger_generic_recognition_event*)
                                     stdev_generic_event_alloc(
-                                            stdev->models[idx].model_handle);
+                                            stdev->models[idx].model_handle,
+                                            payload,
+                                            payload_size);
                         if (event) {
                             struct model_info *model;
                             model = &stdev->models[idx];
@@ -701,6 +752,12 @@ static void *callback_thread_loop(void *context)
                     ALOGE("Invalid id or keyword is not active, Subsume the event");
                 }
                 ge.event_id = -1;
+            }
+            // Free the payload data
+            if (payload) {
+                free(payload);
+                payload = NULL;
+                payload_size = 0;
             }
         } else if (fds[1].revents & POLLIN) {
             read(fds[1].fd, &n, sizeof(n)); /* clear the socket */
@@ -811,6 +868,11 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
                         kw_model_sz, AMBIENT_KW_ID);
         stdev->models[i].kw_id = AMBIENT_KW_ID;
     } else if (check_uuid_equality(stdev->models[i].uuid,
+                                stdev->entity_model_uuid)) {
+        err = write_model(stdev->odsp_hdl, kw_buffer,
+                        kw_model_sz, ENTITY_KW_ID);
+        stdev->models[i].kw_id = ENTITY_KW_ID;
+    }  else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->sensor_model_uuid)) {
         // setup the sensor route
         set_sensor_route(stdev->route_hdl, true);
@@ -869,6 +931,11 @@ static int stdev_unload_sound_model(const struct sound_trigger_hw_device *dev,
     } else if (check_uuid_equality(stdev->models[handle].uuid,
                                 stdev->ambient_model_uuid)) {
         ret = flush_model(stdev->odsp_hdl, AMBIENT_KW_ID);
+        if (ret)
+            goto exit;
+    } else if (check_uuid_equality(stdev->models[handle].uuid,
+                                stdev->entity_model_uuid)) {
+        ret = flush_model(stdev->odsp_hdl, ENTITY_KW_ID);
         if (ret)
             goto exit;
     } else if (check_uuid_equality(stdev->models[handle].uuid,
@@ -1311,6 +1378,7 @@ static int stdev_open(const hw_module_t *module, const char *name,
     str_to_uuid(SENSOR_MANAGER_MODEL, &stdev->sensor_model_uuid);
     str_to_uuid(AMBIENT_AUDIO_MODEL, &stdev->ambient_model_uuid);
     str_to_uuid(CHRE_AUDIO_MODEL, &stdev->chre_model_uuid);
+    str_to_uuid(ENTITY_AUDIO_MODEL, &stdev->entity_model_uuid);
 
     stdev->odsp_hdl = iaxxx_odsp_init();
     if (stdev->odsp_hdl == NULL) {

@@ -36,6 +36,7 @@
 #define AMBIENT_EVT_SRC_ID    IAXXX_SYSID_PLUGIN_INSTANCE_5
 #define OSLO_EVT_SRC_ID       IAXXX_SYSID_PLUGIN_INSTANCE_3
 #define CHRE_EVT_SRC_ID       IAXXX_SYSID_PLUGIN_INSTANCE_6
+#define ENTITY_EVT_SRC_ID     IAXXX_SYSID_PLUGIN_INSTANCE_8
 
 #define HOTWORD_PKG_ID      11
 #define HOTWORD_PLUGIN_IDX  0
@@ -52,6 +53,13 @@
 #define AMBIENT_SLOT_ID         3
 #define AMBIENT_RESET_PARAM_ID  2
 #define AMBIENT_RESET_PARAM_VAL 0
+
+#define ENTITY_PKG_ID          13
+#define ENTITY_PLUGIN_IDX      0
+#define ENTITY_INSTANCE_ID     8
+#define ENTITY_PRIORITY        1
+#define ENTITY_DETECTION       2
+#define ENTITY_SLOT_ID         4
 
 #define BUF_PACKAGE_ID      4
 #define BUF_PLUGIN_IDX      0
@@ -75,8 +83,10 @@
 #define CHRE_EVT_PARAM_ID    8
 
 #define SND_MODEL_UNLOAD_PARAM_ID   5
+#define ENTITY_UNLOAD_PARAM_ID      1
 #define HOTWORD_UNLOAD_PARAM_VAL    1
 #define AMBIENT_UNLOAD_PARAM_VAL    3
+#define ENTITY_UNLOAD_PARAM_VAL     4
 
 #define AEC_PKG_ID       7
 #define AEC_PLUGIN_IDX   0
@@ -90,6 +100,7 @@
 #define BUFFER_CONFIG_AMBIENT_VAL   "BufferConfigValAmbient.bin"
 #define OK_GOOGLE_PACKAGE           "OkGooglePackage.bin"
 #define SOUND_TRIGGER_PACKAGE       "SoundTriggerPackage.bin"
+#define AMBIENT_HOTWORD_PACKAGE     "AmbientHotwordPackage.bin"
 #define SENSOR_PACKAGE              "OsloSensorPackage.bin"
 #define AEC_PASSTHROUGH_PACKAGE     "PassthruPackage.bin"
 
@@ -102,39 +113,65 @@
 #define HOTWORD_WITHOUT_BARGEIN_ROUTE       "hotword-route-without-bargein"
 #define CHRE_WITH_BARGEIN_ROUTE             "chre-route-with-bargein"
 #define CHRE_WITHOUT_BARGEIN_ROUTE          "chre-route-without-bargein"
+#define ENTITY_WITH_BARGEIN_ROUTE           "entity-route-with-bargein"
+#define ENTITY_WITHOUT_BARGEIN_ROUTE        "entity-route-without-bargein"
 
 int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
-                int length, bool kw_type)
-{
+                int length, int kw_type)
+ {
     int err = 0;
 
-    if (kw_type) {
-        ALOGV("+%s+ AMBIENT_KW_ID", __func__);
-        err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                                        AMBIENT_INSTANCE_ID, 0,
-                                        0, IAXXX_HMD_BLOCK_ID);
-        if (err < 0) {
-            ALOGE("%s: Failed to set ambient plgin reset param %s\n",
-                __func__, strerror(errno));
-            goto exit;
-        }
+    switch(kw_type)
+    {
+        case 0: //HOTWORD
+            ALOGV("+%s+ OK_GOOGLE_KW_ID", __func__);
+            err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                                            HOTWORD_INSTANCE_ID, 0,
+                                            0, IAXXX_HMD_BLOCK_ID);
+            if (err < 0) {
+                ALOGE("%s: Failed to set hotword plgin reset param %s\n",
+                    __func__, strerror(errno));
+                goto exit;
+            }
 
-        err = iaxxx_odsp_plugin_set_parameter_blk(odsp_hdl,
-                                        AMBIENT_INSTANCE_ID, AMBIENT_SLOT_ID,
-                                        IAXXX_HMD_BLOCK_ID, data, length);
-    } else {
-        ALOGV("+%s+ OK_GOOGLE_KW_ID", __func__);
-        err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                                        HOTWORD_INSTANCE_ID, 0,
-                                        0, IAXXX_HMD_BLOCK_ID);
-        if (err < 0) {
-            ALOGE("%s: Failed to set hotword plgin reset param %s\n",
-                __func__, strerror(errno));
-            goto exit;
-        }
-        err = iaxxx_odsp_plugin_set_parameter_blk(odsp_hdl,
+            err = iaxxx_odsp_plugin_set_parameter_blk(odsp_hdl,
                                         HOTWORD_INSTANCE_ID, HOTWORD_SLOT_ID,
                                         IAXXX_HMD_BLOCK_ID, data, length);
+            break;
+        case 1: //AMBIENT
+            ALOGV("+%s+ AMBIENT_KW_ID", __func__);
+            err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                                            AMBIENT_INSTANCE_ID, 0,
+                                            0, IAXXX_HMD_BLOCK_ID);
+            if (err < 0) {
+                ALOGE("%s: Failed to set ambient plgin reset param %s\n",
+                    __func__, strerror(errno));
+                goto exit;
+            }
+
+            err = iaxxx_odsp_plugin_set_parameter_blk(odsp_hdl,
+                                        AMBIENT_INSTANCE_ID, AMBIENT_SLOT_ID,
+                                        IAXXX_HMD_BLOCK_ID, data, length);
+            break;
+        case 2: //ENTITY
+            ALOGV("+%s+ Entity_KW_ID", __func__);
+            err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                                            ENTITY_INSTANCE_ID, 0,
+                                            0, IAXXX_HMD_BLOCK_ID);
+            if (err < 0) {
+                ALOGE("%s: Failed to set entity plgin reset param %s\n",
+                    __func__, strerror(errno));
+                goto exit;
+            }
+            err = iaxxx_odsp_plugin_set_parameter_blk(odsp_hdl,
+                                            ENTITY_INSTANCE_ID, ENTITY_SLOT_ID,
+                                            IAXXX_HMD_BLOCK_ID, data, length);
+            break;
+        default:
+            ALOGE("%s: Unknown KW_ID\n", __func__);
+            err = -1;
+            errno = -EINVAL;
+            break;
     }
 
     if (err < 0) {
@@ -372,6 +409,74 @@ int tear_ambient_audio_route(struct iaxxx_odsp_hw *odsp_hdl,
     return err;
 }
 
+int set_entity_route(struct iaxxx_odsp_hw *odsp_hdl,
+                    struct audio_route *route_hdl, bool bargein)
+{
+    int err = 0;
+
+    ALOGV("+%s bargein %d+", __func__, bargein);
+    // Set the events and params
+    err = iaxxx_odsp_plugin_setevent(odsp_hdl, ENTITY_INSTANCE_ID,
+                                    0x4, IAXXX_HMD_BLOCK_ID);
+    if (err == -1) {
+        ALOGE("%s: ERROR: Entity set event failed with error %d(%s)",
+            __func__, errno, strerror(errno));
+        goto exit;
+    }
+
+    ALOGD("Registering for Entity event\n");
+
+    // Subscribe for events
+    err = iaxxx_odsp_evt_subscribe(odsp_hdl, ENTITY_EVT_SRC_ID,
+                                ENTITY_DETECTION, IAXXX_SYSID_HOST, 0);
+
+    if (err == -1) {
+        ALOGE("%s: ERROR: Hotword subscribe event failed with error %d(%s)",
+            __func__, errno, strerror(errno));
+        goto exit;
+    }
+
+    if (bargein == true)
+        err = audio_route_apply_and_update_path(route_hdl,
+                                            ENTITY_WITH_BARGEIN_ROUTE);
+    else
+        err = audio_route_apply_and_update_path(route_hdl,
+                                            ENTITY_WITHOUT_BARGEIN_ROUTE);
+    if (err)
+        ALOGE("%s: route apply fail %d", __func__, err);
+exit:
+    ALOGV("-%s-", __func__);
+    return err;
+}
+
+int tear_entity_route(struct iaxxx_odsp_hw *odsp_hdl,
+                    struct audio_route *route_hdl,
+                    bool bargein)
+{
+    int err = 0;
+
+    ALOGV("+%s bargein %d+", __func__, bargein);
+    /* check cvq node to send ioctl */
+    if (bargein == true)
+        err = audio_route_reset_and_update_path(route_hdl,
+                                            ENTITY_WITH_BARGEIN_ROUTE);
+    else
+        err = audio_route_reset_and_update_path(route_hdl,
+                                            ENTITY_WITHOUT_BARGEIN_ROUTE);
+    if (err)
+        ALOGE("%s: route reset fail %d", __func__, err);
+
+    err = iaxxx_odsp_evt_unsubscribe(odsp_hdl, ENTITY_EVT_SRC_ID,
+                                    ENTITY_DETECTION, IAXXX_SYSID_HOST);
+    if (err == -1) {
+        ALOGE("%s: ERROR: Hotword unsubscrive event failed with error %d(%s)",
+            __func__, errno, strerror(errno));
+    }
+
+    ALOGV("-%s-", __func__);
+    return err;
+}
+
 int set_hotword_route(struct iaxxx_odsp_hw *odsp_hdl,
                     struct audio_route *route_hdl, bool bargein)
 {
@@ -524,20 +629,36 @@ int sensor_event_init_params(struct iaxxx_odsp_hw *odsp_hdl)
     return err;
 }
 
-int flush_model(struct iaxxx_odsp_hw *odsp_hdl, bool kw_type)
+int flush_model(struct iaxxx_odsp_hw *odsp_hdl, int kw_type)
 {
     int err = 0;
 
     ALOGV("+%s+", __func__);
-    if (kw_type) {
-        err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                    AMBIENT_INSTANCE_ID, SND_MODEL_UNLOAD_PARAM_ID,
-                    AMBIENT_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
-    } else {
-        err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                    HOTWORD_INSTANCE_ID, SND_MODEL_UNLOAD_PARAM_ID,
-                    HOTWORD_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
+
+    switch(kw_type)
+    {
+        case 0: //HOTWORD
+            err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                        HOTWORD_INSTANCE_ID, SND_MODEL_UNLOAD_PARAM_ID,
+                        HOTWORD_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
+            break;
+        case 1: //AMBIENT
+            err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                        AMBIENT_INSTANCE_ID, SND_MODEL_UNLOAD_PARAM_ID,
+                        AMBIENT_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
+            break;
+        case 2: //ENTITY
+            err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                        ENTITY_INSTANCE_ID, ENTITY_UNLOAD_PARAM_ID,
+                        ENTITY_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
+            break;
+        default:
+            ALOGE("%s: Unknown KW_ID\n", __func__);
+            err = -1;
+            errno = -EINVAL;
+            break;
     }
+
     if (err < 0) {
         ALOGE("%s: ERROR: model unload set param failed with error %d(%s)",
             __func__, errno, strerror(errno));
@@ -569,6 +690,15 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
                                 AMBIENT_PKG_ID);
     if (err == -1) {
         ALOGE("%s: ERROR: Failed to load Ambient %d(%s)",
+            __func__, errno, strerror(errno));
+        return err;
+    }
+
+    // Download packages for entity audio
+    err = iaxxx_odsp_package_load(odsp_hdl, AMBIENT_HOTWORD_PACKAGE,
+                                ENTITY_PKG_ID);
+    if (err == -1) {
+        ALOGE("%s: ERROR: Failed to load ENTITY %d(%s)",
             __func__, errno, strerror(errno));
         return err;
     }
@@ -620,6 +750,17 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
             __func__, errno, strerror(errno));
         return err;
     }
+
+    // Create Entity plugin
+    err = iaxxx_odsp_plugin_create(odsp_hdl, ENTITY_INSTANCE_ID, ENTITY_PRIORITY,
+                                ENTITY_PKG_ID, ENTITY_PLUGIN_IDX,
+                                IAXXX_HMD_BLOCK_ID);
+    if (err == -1) {
+        ALOGE("%s: ERROR: Failed to create Entity plugin%d(%s)",
+            __func__, errno, strerror(errno));
+        return err;
+    }
+
 
     /* SENSOR MANAGER PACKAGE LOAD AND ROUTE SETUP */
     // Download packages
@@ -742,22 +883,6 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
         return err;
     }
 
-    err = iaxxx_odsp_plugin_set_parameter(odsp_hdl, HOTWORD_INSTANCE_ID, 0,
-                                        0, IAXXX_HMD_BLOCK_ID);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Ok google set param %d(%s)",
-            __func__, errno, strerror(errno));
-        return err;
-    }
-
-    err = iaxxx_odsp_plugin_set_parameter(odsp_hdl, AMBIENT_INSTANCE_ID, 0,
-                                        0, IAXXX_HMD_BLOCK_ID);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Ambient set param %d(%s)",
-            __func__, errno, strerror(errno));
-        return err;
-     }
-
     /* Param ID is 8 for Buffer package
      * 60480 is in bytes calculated for 1.8sec buffer threshold
      * 640/2 = 320 for 10ms frame in Q15 format.
@@ -824,5 +949,22 @@ int enable_mic_route(struct audio_route *route_hdl, int enable)
         ALOGE("%s: route fail %d", __func__, err);
 
     ALOGD("-%s-", __func__);
+    return err;
+}
+
+int get_entity_param_blk(struct iaxxx_odsp_hw *odsp_hdl, void *payload,
+                unsigned int payload_size)
+{
+    int err = 0;
+    err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl,
+                                            ENTITY_INSTANCE_ID,
+                                            IAXXX_HMD_BLOCK_ID,
+                                            100, payload,
+                                            payload_size);
+
+    if (err < 0) {
+        ALOGE("%s: Failed to get param blk error %s\n",
+            __func__, strerror(errno));
+    }
     return err;
 }
