@@ -18,7 +18,7 @@
 
 #define BUFFER_PACKAGE      "BufferPackage.bin"
 #define BUFFER_CONFIG_OSLO_VAL      "BufferConfigValOslo.bin"
-#define SENSOR_PACKAGE   "DummySensorPackage.bin"
+#define SENSOR_PACKAGE   "OsloSensorPackage.bin"
 
 #define PLUGIN3_SRC_ID 0x30FF
 

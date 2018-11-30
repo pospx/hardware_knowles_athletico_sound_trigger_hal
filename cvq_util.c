@@ -87,7 +87,7 @@
 #define BUFFER_CONFIG_AMBIENT_VAL   "BufferConfigValAmbient.bin"
 #define OK_GOOGLE_PACKAGE           "OkGooglePackage.bin"
 #define SOUND_TRIGGER_PACKAGE       "SoundTriggerPackage.bin"
-#define SENSOR_PACKAGE              "DummySensorPackage.bin"
+#define SENSOR_PACKAGE              "OsloSensorPackage.bin"
 #define AEC_PASSTHROUGH_PACKAGE     "PassthruPackage.bin"
 
 #define MIC_ROUTE                           "mic1-route"
