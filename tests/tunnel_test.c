@@ -19,12 +19,13 @@
 #include <string.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <time.h>
 #include <errno.h>
 #include <unistd.h>
 
 #define LOG_TAG "ia_tunneling_hal_test"
 
-#include <cutils/log.h>
+#include <log/log.h>
 #include "tunnel.h"
 #include "conversion_routines.h"
 #include "iaxxx-system-identifiers.h"
@@ -92,7 +93,8 @@ int main(int argc, char *argv[]) {
     int i = 0;
     bool valid_frame = true;
     int num_of_tunnels = 0;
-    int timer_signal = 0;
+    float timer_signal = 0;
+    timer_t timer_id;
     int tunnel_src[MAX_TUNNELS] = { 0 };
     int tunnel_mode[MAX_TUNNELS] = { 0 };
     int tunnel_encode[MAX_TUNNELS];
@@ -116,8 +118,13 @@ int main(int argc, char *argv[]) {
     num_of_tunnels = strtol(argv[2], NULL, 0);
     ALOGD("Number of tunnels %d", num_of_tunnels);
 
-    timer_signal= strtol(argv[3], NULL, 0);
-    ALOGD("tunnel out timer based req %d", timer_signal);
+    timer_signal = strtof(argv[3], NULL);
+    ALOGD("tunnel out timer based req %f", timer_signal);
+    err = timer_create(CLOCK_MONOTONIC, NULL, &timer_id);
+    if (err != 0) {
+        ALOGE("Couldn't create timer: %s", strerror(errno));
+        return -EINVAL;
+    }
 
 #ifdef FILENAME_ASSIGN
     char filename_str_format[256] = {0};
@@ -190,8 +197,18 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, sigint_handler);
 
     if (num_of_tunnels && timer_signal) {
+        struct itimerspec timer_spec;
+        uint64_t timer_ns = timer_signal * NS_PER_SEC;
+
         signal(SIGALRM, sigint_handler);
-        alarm(timer_signal);
+
+        memset(&timer_spec, 0, sizeof(timer_spec));
+        timer_spec.it_value.tv_sec = timer_ns / NS_PER_SEC;
+        timer_spec.it_value.tv_nsec = timer_ns % NS_PER_SEC;
+        timer_settime(timer_id, 0, &timer_spec, NULL);
+        ALOGD("timer_settime %ld %ld",
+              timer_spec.it_value.tv_sec,
+              timer_spec.it_value.tv_nsec);
     }
 
     unsigned short int tunnel_id;
@@ -364,6 +381,8 @@ exit:
     if (0 != err) {
         ALOGE("Failed to stop tunneling");
     }
+
+    timer_delete(timer_id);
 
     return 0;
 }
