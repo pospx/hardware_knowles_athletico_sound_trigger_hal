@@ -783,7 +783,7 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
     stdev->models[i].kw_id = (i + 1);
     stdev->models[i].model_handle = *handle;
     stdev->models[i].type = sound_model->type;
-    stdev->models[i].uuid = sound_model->uuid;
+    stdev->models[i].uuid = sound_model->vendor_uuid;
     stdev->models[i].sound_model_callback = callback;
     stdev->models[i].sound_model_cookie = cookie;
     stdev->models[i].recognition_callback = NULL;
@@ -800,21 +800,21 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
     }
 
     // Send the keyword model to the chip only for hotword and ambient audio
-    if (check_uuid_equality(sound_model->uuid,
+    if (check_uuid_equality(stdev->models[i].uuid,
                             stdev->hotword_model_uuid)) {
         err = write_model(stdev->odsp_hdl, kw_buffer,
                         kw_model_sz, OK_GOOGLE_KW_ID);
         stdev->models[i].kw_id = OK_GOOGLE_KW_ID;
-    } else if (check_uuid_equality(sound_model->uuid,
+    } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->ambient_model_uuid)) {
         err = write_model(stdev->odsp_hdl, kw_buffer,
                         kw_model_sz, AMBIENT_KW_ID);
         stdev->models[i].kw_id = AMBIENT_KW_ID;
-    } else if (check_uuid_equality(sound_model->uuid,
+    } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->sensor_model_uuid)) {
         // setup the sensor route
         set_sensor_route(stdev->route_hdl, true);
-    } else if (check_uuid_equality(sound_model->uuid,
+    } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->chre_model_uuid)) {
         // setup the CHRE route and Mic route.
         stdev->models[i].is_active = true;
