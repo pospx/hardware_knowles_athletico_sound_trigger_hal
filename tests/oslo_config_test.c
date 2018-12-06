@@ -55,6 +55,12 @@
 
 #define BGT60TR24C_NUM_REGISTERS        0x60
 
+/* Oslo Calibration */
+#define CAL_FILE "/persist/oslo/oslo.cal"
+#define CAL_MODES_MAX 10
+#define CAL_INVALID_MODE -1
+#define CAL_MODE_IS_VALID(x) (x >= 0 && x < CAL_MODES_MAX)
+
 /* copy of SensorDriver.h from athletico repository */
 #define OSLO_PRESET_CONFIG_START_INDEX  100
 #define OSLO_CONTROL_START_INDEX        200
@@ -230,6 +236,17 @@ struct ia_sensor_mgr {
     FILE *dev_node;
 };
 
+struct cal_coefficient {
+    int mode;
+    float ch1_i_val;
+    float ch1_q_val;
+    float ch2_i_val;
+    float ch2_q_val;
+    float ch3_i_val;
+    float ch3_q_val;
+};
+static struct cal_coefficient cal_table[CAL_MODES_MAX];
+
 static struct option const long_options[] =
 {
  {"setparamid", required_argument, NULL, 's'},
@@ -239,6 +256,7 @@ static struct option const long_options[] =
  {"route", required_argument, NULL, 'r'},
  {"readregister", required_argument, NULL, 'd'},
  {"writeregister", required_argument, NULL, 'w'},
+ {"calibration", required_argument, NULL, 'c'},
  {"help", no_argument, NULL, GETOPT_HELP_CHAR},
  {NULL, 0, NULL, 0}
 };
@@ -257,6 +275,7 @@ void usage() {
     4) oslo_config_test -r <1/0>\n\
     5) oslo_config_test -d <reg_addr>\n\
     6) oslo_config_test -w <reg_addr> -v <reg_val>\n\
+    7) oslo_config_test -c '<Mode> <ch1 I_val> <ch1 Q_val> <ch2 I_val> <ch2 Q_val> <ch3 I_val> <ch3 Q_val>' \n\
     ", stdout);
 
     fputs("\n\
@@ -270,6 +289,7 @@ void usage() {
     -r          Set sensor route.\n\
     -d          Read register.\n\
     -w          Write register.\n\
+    -c          Store Calibration coefficients to persist file.\n\
     ", stdout);
 
     fputs("\n\
@@ -415,6 +435,109 @@ void write_register(struct ia_sensor_mgr *smd, uint32_t reg_addr, uint32_t reg_v
     fprintf(stdout, "Write reg[0x%02x] val:0x%06x\n", reg_addr, reg_val);
 }
 
+int cal_read_persist(void) {
+    FILE *fid;;
+    struct cal_coefficient coef;
+
+    fid = fopen(CAL_FILE, "r");
+    if (fid == NULL) {
+        ALOGD("%s: Cannot open '%s'\n", __func__, CAL_FILE);
+        return -errno;
+    }
+
+    while (!feof(fid)) {
+        int num;
+
+        memset(&coef, 0, sizeof(coef));
+        coef.mode = CAL_INVALID_MODE;
+
+        num = fscanf(fid, "Mode: %d\n", &coef.mode);
+        if (num != 1) {
+            ALOGE("%s: Parse Mode failed, num:%d\n", __func__, num);
+            break;
+        }
+
+        num = fscanf(fid, "ch1: %f %f\n", &coef.ch1_i_val, &coef.ch1_q_val);
+        if (num != 2) {
+            ALOGE("%s: Parse ch1 failed, num:%d\n", __func__, num);
+            break;
+        }
+
+        num = fscanf(fid, "ch2: %f %f\n", &coef.ch2_i_val, &coef.ch2_q_val);
+        if (num != 2) {
+            ALOGE("%s: Parse ch2 failed, num:%d\n", __func__, num);
+            break;
+        }
+
+        num = fscanf(fid, "ch3: %f %f\n", &coef.ch3_i_val, &coef.ch3_q_val);
+        if (num != 2) {
+            ALOGE("%s: Parse ch3 failed, num:%d\n", __func__, num);
+            break;
+        }
+
+        if (CAL_MODE_IS_VALID(coef.mode)) {
+            memcpy(&cal_table[coef.mode], &coef, sizeof(coef));
+            ALOGD("%s: %d  %f %f %f %f %f %f\n", __func__, coef.mode,
+                  coef.ch1_i_val, coef.ch1_q_val,
+                  coef.ch2_i_val, coef.ch2_q_val,
+                  coef.ch3_i_val, coef.ch3_q_val);
+        } else {
+            ALOGE("%s: Invalid mode:%d\n", __func__, coef.mode);
+        }
+    }
+
+    fclose(fid);
+
+    return 0;
+}
+
+int cal_write_persist(const struct cal_coefficient* coef) {
+    FILE *fid;
+
+    if (!coef) {
+        ALOGE("%s: Invalid coef", __func__);
+        fprintf(stdout, "%s: Invalid coef\n", __func__);
+        return -EINVAL;
+    }
+
+    if (!CAL_MODE_IS_VALID(coef->mode)) {
+        ALOGE("%s: Invalid mode:%d", __func__, coef->mode);
+        fprintf(stdout, "%s: Invalid mode:%d\n", __func__, coef->mode);
+        return -EINVAL;
+    }
+
+    fid = fopen(CAL_FILE, "w");
+    if (fid == NULL) {
+        ALOGE("Cannot open '%s' (%s)\n", CAL_FILE, strerror(errno));
+        fprintf(stdout, "Cannot open '%s' (%s)\n", CAL_FILE, strerror(errno));
+        return -errno;
+    }
+
+    memcpy(&cal_table[coef->mode], coef, sizeof(struct cal_coefficient));
+    for (int i = 0; i < CAL_MODES_MAX; i++) {
+        if (CAL_MODE_IS_VALID(cal_table[i].mode)) {
+            fprintf(fid, "Mode: %u\n", cal_table[i].mode);
+            fprintf(fid, "ch1: %f %f\n",
+                         cal_table[i].ch1_i_val,
+                         cal_table[i].ch1_q_val);
+            fprintf(fid, "ch2: %f %f\n",
+                         cal_table[i].ch2_i_val,
+                         cal_table[i].ch2_q_val);
+            fprintf(fid, "ch3: %f %f\n",
+                         cal_table[i].ch3_i_val,
+                         cal_table[i].ch3_q_val);
+            ALOGD("%s: %d  %f %f %f %f %f %f\n", __func__, cal_table[i].mode,
+                  cal_table[i].ch1_i_val, cal_table[i].ch1_q_val,
+                  cal_table[i].ch2_i_val, cal_table[i].ch2_q_val,
+                  cal_table[i].ch3_i_val, cal_table[i].ch3_q_val);
+        }
+    }
+
+    fclose(fid);
+
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     struct ia_sensor_mgr * smd;
     char use_case;
@@ -426,12 +549,13 @@ int main(int argc, char *argv[]) {
     uint32_t reg_addr;
     uint32_t reg_val;
     bool reg_val_set = false;
+    struct cal_coefficient cal_coef = { .mode = CAL_INVALID_MODE };
 
     if (argc <= 1) {
         usage();
     }
 
-    while ((c = getopt_long (argc, argv, "s:v:g:p:r:d:w:", long_options, NULL)) != -1) {
+    while ((c = getopt_long (argc, argv, "s:v:g:p:r:d:w:c:", long_options, NULL)) != -1) {
         switch (c) {
         case 's':
             if (NULL == optarg) {
@@ -516,6 +640,26 @@ int main(int argc, char *argv[]) {
                 use_case = 'w';
             }
         break;
+        case 'c':
+            if (NULL == optarg) {
+                fprintf(stderr, "Incorrect usage, c option requires an argument");
+                usage();
+            } else {
+                int num_matched;
+                num_matched = sscanf(optarg, "%d %f %f %f %f %f %f",
+                                     &cal_coef.mode,
+                                     &cal_coef.ch1_i_val, &cal_coef.ch1_q_val,
+                                     &cal_coef.ch2_i_val, &cal_coef.ch2_q_val,
+                                     &cal_coef.ch3_i_val, &cal_coef.ch3_q_val);
+                if (num_matched == 7) {
+                    use_case = 'c';
+                }
+                else {
+                    fprintf(stderr, "Incorrect -c arguments %s\n", optarg);
+                    usage();
+                }
+            }
+        break;
         case GETOPT_HELP_CHAR:
         default:
             usage();
@@ -543,10 +687,16 @@ int main(int argc, char *argv[]) {
         } else if ('r' == use_case) {
             force_set_sensor_route(route_enable);
         } else if ('d' == use_case) {
-           read_register(smd, reg_addr);
+            read_register(smd, reg_addr);
         } else if ('w' == use_case) {
-           if (reg_val_set)
-             write_register(smd, reg_addr, reg_val);
+            if (reg_val_set)
+                write_register(smd, reg_addr, reg_val);
+        } else if ('c' == use_case) {
+            for (int i = 0; i < CAL_MODES_MAX; i++) {
+                cal_table[i].mode = CAL_INVALID_MODE;
+            }
+            cal_read_persist();
+            cal_write_persist(&cal_coef);
         }
 
         if (smd->dev_node) {
