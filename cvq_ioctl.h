@@ -21,6 +21,12 @@
 #include <audio_route/audio_route.h>
 #include <tinyalsa/asoundlib.h>
 
+#define HOTWORD_MASK 0x1
+#define AMBIENT_MASK 0x2
+#define ENTITY_MASK  0x4
+#define PLUGIN1_MASK (HOTWORD_MASK)
+#define PLUGIN2_MASK (AMBIENT_MASK | ENTITY_MASK)
+
 int force_set_sensor_route(bool enable);
 int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
                 int length, int kw_type);
@@ -29,16 +35,12 @@ int get_event(struct iaxxx_odsp_hw *odsp_hdl,
 int setup_chip(struct iaxxx_odsp_hw *odsp_hdl);
 int enable_mic_route(struct audio_route *route_hdl, int enable);
 int set_sensor_route(struct audio_route *route_hdl, bool enable);
-int set_ambient_audio_route(struct iaxxx_odsp_hw *odsp_hdl,
-                            struct audio_route *route_hdl,
-                            bool bargein);
-int tear_ambient_audio_route(struct iaxxx_odsp_hw *odsp_hdl,
-                            struct audio_route *route_hdl,
-                            bool bargein);
-int set_entity_route(struct iaxxx_odsp_hw *odsp_hdl,
-                    struct audio_route *route_hdl, bool bargein);
-int tear_entity_route(struct iaxxx_odsp_hw *odsp_hdl,
-                    struct audio_route *route_hdl, bool bargein);
+int set_ambient_entity_state(struct iaxxx_odsp_hw *odsp_hdl,
+                        unsigned int current);
+int tear_ambient_entity_state(struct iaxxx_odsp_hw *odsp_hdl,
+                        unsigned int current);
+int set_ambient_entity_route(struct audio_route *route_hdl, bool bargein);
+int tear_ambient_entity_route(struct audio_route *route_hdl, bool bargein);
 int set_hotword_route(struct iaxxx_odsp_hw *odsp_hdl,
                     struct audio_route *route_hdl, bool bargein);
 int tear_hotword_route(struct iaxxx_odsp_hw *odsp_hdl,

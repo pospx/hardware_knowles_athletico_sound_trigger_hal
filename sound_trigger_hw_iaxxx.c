@@ -38,7 +38,7 @@
 #include "cvq_ioctl.h"
 #include "sound_trigger_intf.h"
 
-#define MAX_GENERIC_SOUND_MODELS    (3)
+#define MAX_GENERIC_SOUND_MODELS    (9)
 #define MAX_KEY_PHRASES             (1)
 #define MAX_MODELS                  (MAX_GENERIC_SOUND_MODELS + MAX_KEY_PHRASES)
 
@@ -145,6 +145,8 @@ struct knowles_sound_trigger_device {
     bool is_mic_route_enabled;
     bool is_music_playing;
     bool is_bargein_route_enabled;
+
+    unsigned int current_enable;
 
     struct audio_route *route_hdl;
     struct iaxxx_odsp_hw *odsp_hdl;
@@ -404,12 +406,21 @@ static int set_package_route(struct knowles_sound_trigger_device *stdev,
      */
     if (check_uuid_equality(uuid, stdev->chre_model_uuid))
         set_chre_audio_route(stdev->route_hdl, bargein);
-    else if (check_uuid_equality(uuid, stdev->ambient_model_uuid))
-        set_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
     else if (check_uuid_equality(uuid, stdev->hotword_model_uuid))
         set_hotword_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
-    else if (check_uuid_equality(uuid, stdev->entity_model_uuid))
-        set_entity_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->ambient_model_uuid)) {
+        stdev->current_enable = stdev->current_enable | AMBIENT_MASK;
+        set_ambient_entity_state(stdev->odsp_hdl, stdev->current_enable);
+        if (!((stdev->current_enable & PLUGIN2_MASK) & ~AMBIENT_MASK)) {
+            set_ambient_entity_route(stdev->route_hdl, bargein);
+        }
+    } else if (check_uuid_equality(uuid, stdev->entity_model_uuid)) {
+        stdev->current_enable = stdev->current_enable | ENTITY_MASK;
+        set_ambient_entity_state(stdev->odsp_hdl, stdev->current_enable);
+        if (!((stdev->current_enable & PLUGIN2_MASK) & ~ENTITY_MASK)) {
+            set_ambient_entity_route(stdev->route_hdl, bargein);
+        }
+    }
 
     return ret;
 }
@@ -425,12 +436,19 @@ static int tear_package_route(struct knowles_sound_trigger_device *stdev,
      */
     if (check_uuid_equality(uuid, stdev->chre_model_uuid))
         tear_chre_audio_route(stdev->route_hdl, bargein);
-    else if (check_uuid_equality(uuid, stdev->ambient_model_uuid))
-        tear_ambient_audio_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
     else if (check_uuid_equality(uuid, stdev->hotword_model_uuid))
         tear_hotword_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
-    else if (check_uuid_equality(uuid, stdev->entity_model_uuid))
-        tear_entity_route(stdev->odsp_hdl, stdev->route_hdl, bargein);
+    else if (check_uuid_equality(uuid, stdev->ambient_model_uuid)) {
+        if (!((stdev->current_enable & PLUGIN2_MASK) & ~AMBIENT_MASK))
+            tear_ambient_entity_route(stdev->route_hdl, bargein);
+        tear_ambient_entity_state(stdev->odsp_hdl, AMBIENT_MASK);
+        stdev->current_enable = stdev->current_enable & ~AMBIENT_MASK;
+    } else if (check_uuid_equality(uuid, stdev->entity_model_uuid)) {
+        if (!((stdev->current_enable & PLUGIN2_MASK) & ~ENTITY_MASK))
+            tear_ambient_entity_route(stdev->route_hdl, bargein);
+        tear_ambient_entity_state(stdev->odsp_hdl, ENTITY_MASK);
+        stdev->current_enable = stdev->current_enable & ~ENTITY_MASK;
+    }
 
     return ret;
 }
@@ -681,7 +699,7 @@ static void *callback_thread_loop(void *context)
                 ge.event_id == ENTITY_KW_ID) {
                 ALOGD("%s: Keyword ID %d", __func__, kwid);
 
-                if (ge.data != 0 && ge.event_id == ENTITY_KW_ID) {
+                if (ge.data != 0) {
                     ALOGD("Size of payload is %d", ge.data);
                     payload_size = ge.data;
                     payload = malloc(payload_size);
@@ -864,14 +882,28 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
         stdev->models[i].kw_id = OK_GOOGLE_KW_ID;
     } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->ambient_model_uuid)) {
+        if (stdev->current_enable & PLUGIN2_MASK) {
+            // tear down plugin2 for writing new model data.
+            tear_ambient_entity_state(stdev->odsp_hdl, stdev->current_enable);
+        }
         err = write_model(stdev->odsp_hdl, kw_buffer,
                         kw_model_sz, AMBIENT_KW_ID);
         stdev->models[i].kw_id = AMBIENT_KW_ID;
+        //resume teat down model state.
+        if (stdev->current_enable & PLUGIN2_MASK)
+            set_ambient_entity_state(stdev->odsp_hdl, stdev->current_enable);
     } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->entity_model_uuid)) {
+        if (stdev->current_enable & PLUGIN2_MASK) {
+            // tear down plugin2 for writing new model data.
+            tear_ambient_entity_state(stdev->odsp_hdl, stdev->current_enable);
+        }
         err = write_model(stdev->odsp_hdl, kw_buffer,
                         kw_model_sz, ENTITY_KW_ID);
         stdev->models[i].kw_id = ENTITY_KW_ID;
+        //resume teat down model state.
+        if (stdev->current_enable & PLUGIN2_MASK)
+            set_ambient_entity_state(stdev->odsp_hdl, stdev->current_enable);
     }  else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->sensor_model_uuid)) {
         // setup the sensor route
@@ -1373,6 +1405,7 @@ static int stdev_open(const hw_module_t *module, const char *name,
     stdev->is_mic_route_enabled = false;
     stdev->is_music_playing = false;
     stdev->is_bargein_route_enabled = false;
+    stdev->current_enable = 0;
 
     str_to_uuid(HOTWORD_AUDIO_MODEL, &stdev->hotword_model_uuid);
     str_to_uuid(SENSOR_MANAGER_MODEL, &stdev->sensor_model_uuid);

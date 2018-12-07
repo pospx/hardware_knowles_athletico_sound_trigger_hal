@@ -32,42 +32,20 @@
 
 #include "cvq_ioctl.h"
 
-#define HOTWORD_EVT_SRC_ID    IAXXX_SYSID_PLUGIN_INSTANCE_0
-#define AMBIENT_EVT_SRC_ID    IAXXX_SYSID_PLUGIN_INSTANCE_5
-#define OSLO_EVT_SRC_ID       IAXXX_SYSID_PLUGIN_INSTANCE_3
-#define CHRE_EVT_SRC_ID       IAXXX_SYSID_PLUGIN_INSTANCE_6
-#define ENTITY_EVT_SRC_ID     IAXXX_SYSID_PLUGIN_INSTANCE_8
+#define HOTWORD_EVT_SRC_ID            IAXXX_SYSID_PLUGIN_INSTANCE_0
+#define OSLO_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_3
+#define CHRE_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_6
+#define AMBIENT_ENTITY_EVT_SRC_ID     IAXXX_SYSID_PLUGIN_INSTANCE_5
 
 #define HOTWORD_PKG_ID      11
 #define HOTWORD_PLUGIN_IDX  0
 #define HOTWORD_INSTANCE_ID 0
 #define HOTWORD_PRIORITY    1
-#define HOTWORD_DETECTION   0
-#define HOTWORD_SLOT_ID     1
 
-#define AMBIENT_PKG_ID          12
-#define AMBIENT_PLUGIN_IDX      0
-#define AMBIENT_INSTANCE_ID     5
-#define AMBIENT_PRIORITY        1
-#define AMBIENT_DETECTION       1
-#define AMBIENT_SLOT_ID         3
-#define AMBIENT_RESET_PARAM_ID  2
-#define AMBIENT_RESET_PARAM_VAL 0
-
-#define ENTITY_PKG_ID          13
-#define ENTITY_PLUGIN_IDX      0
-#define ENTITY_INSTANCE_ID     8
-#define ENTITY_PRIORITY        1
-#define ENTITY_DETECTION       2
-#define ENTITY_SLOT_ID         4
-
-#define BUF_PACKAGE_ID      4
-#define BUF_PLUGIN_IDX      0
-#define BUF_PRIORITY        1
-
-#define HOTWORD_BUF_INSTANCE_ID     1
-#define OSLO_BUF_INSTANCE_ID        2
-#define AMBIENT_BUF_INSTANCE_ID     4
+#define AMBIENT_ENTITY_PKG_ID          12
+#define AMBIENT_ENTITY_PLUGIN_IDX      0
+#define AMBIENT_ENTITY_INSTANCE_ID     5
+#define AMBIENT_ENTITY_PRIORITY        1
 
 #define SENSOR_PKG_ID           0
 #define SENSOR_PLUGIN_IDX       0
@@ -77,44 +55,60 @@
 #define SENSOR_DETECTED_MODE    1
 #define SENSOR_MAX_MODE         2
 
-#define CHRE_PLUGIN_IDX      0
-#define CHRE_INSTANCE_ID     6
-#define CHRE_EVT_ID          3
-#define CHRE_EVT_PARAM_ID    8
-
-#define SND_MODEL_UNLOAD_PARAM_ID   5
-#define ENTITY_UNLOAD_PARAM_ID      1
-#define HOTWORD_UNLOAD_PARAM_VAL    1
-#define AMBIENT_UNLOAD_PARAM_VAL    3
-#define ENTITY_UNLOAD_PARAM_VAL     4
-
 #define AEC_PKG_ID       7
 #define AEC_PLUGIN_IDX   0
 #define AEC_BLOCK_ID     1
 #define AEC_INSTANCE_ID  7
 #define AEC_PRIORITY     1
 
+#define CHRE_PLUGIN_IDX      0
+#define CHRE_INSTANCE_ID     6
+#define CHRE_EVT_ID          3
+#define CHRE_EVT_PARAM_ID    8
+
+#define BUF_PACKAGE_ID      4
+#define BUF_PLUGIN_IDX      0
+#define BUF_PRIORITY        1
+
+#define HOTWORD_BUF_INSTANCE_ID     1
+#define OSLO_BUF_INSTANCE_ID        2
+#define AMBIENT_BUF_INSTANCE_ID     4
+
+#define HOTWORD_DETECTION   0
+#define AMBIENT_DETECTION   1
+#define ENTITY_DETECTION    2
+
+#define HOTWORD_SLOT_ID     1
+#define AMBIENT_SLOT_ID     3
+#define ENTITY_SLOT_ID      4
+
+#define HOTWORD_UNLOAD_PARAM_ID             1
+#define AMBIENT_ENTITY_UNLOAD_PARAM_ID      1
+#define AMBIENT_ENTITY_RESET_PARAM_ID       2
+
+#define HOTWORD_UNLOAD_PARAM_VAL            1
+#define AMBIENT_UNLOAD_PARAM_VAL            3
+#define ENTITY_UNLOAD_PARAM_VAL             4
+#define AMBIENT_ENTITY_RESET_PARAM_VAL      3
+
 #define BUFFER_PACKAGE              "BufferPackage.bin"
 #define BUFFER_CONFIG_VAL           "BufferConfigVal.bin"
 #define BUFFER_CONFIG_OSLO_VAL      "BufferConfigValOslo.bin"
 #define BUFFER_CONFIG_AMBIENT_VAL   "BufferConfigValAmbient.bin"
 #define OK_GOOGLE_PACKAGE           "OkGooglePackage.bin"
-#define SOUND_TRIGGER_PACKAGE       "SoundTriggerPackage.bin"
 #define AMBIENT_HOTWORD_PACKAGE     "AmbientHotwordPackage.bin"
 #define SENSOR_PACKAGE              "OsloSensorPackage.bin"
 #define AEC_PASSTHROUGH_PACKAGE     "PassthruPackage.bin"
 
-#define MIC_ROUTE                           "mic1-route"
-#define BARGEIN_ROUTE                       "bargein-route"
-#define SENSOR_ROTUE                        "oslo-route"
-#define AMBIENT_AUDIO_WITH_BARGEIN_ROUTE    "ambient-audio-route-with-bargein"
-#define AMBIENT_AUDIO_WITHOUT_BARGEIN_ROUTE "ambient-audio-route-without-bargein"
-#define HOTWORD_WITH_BARGEIN_ROUTE          "hotword-route-with-bargein"
-#define HOTWORD_WITHOUT_BARGEIN_ROUTE       "hotword-route-without-bargein"
-#define CHRE_WITH_BARGEIN_ROUTE             "chre-route-with-bargein"
-#define CHRE_WITHOUT_BARGEIN_ROUTE          "chre-route-without-bargein"
-#define ENTITY_WITH_BARGEIN_ROUTE           "entity-route-with-bargein"
-#define ENTITY_WITHOUT_BARGEIN_ROUTE        "entity-route-without-bargein"
+#define MIC_ROUTE                            "mic1-route"
+#define BARGEIN_ROUTE                        "bargein-route"
+#define SENSOR_ROTUE                         "oslo-route"
+#define HOTWORD_WITH_BARGEIN_ROUTE           "hotword-route-with-bargein"
+#define HOTWORD_WITHOUT_BARGEIN_ROUTE        "hotword-route-without-bargein"
+#define CHRE_WITH_BARGEIN_ROUTE              "chre-route-with-bargein"
+#define CHRE_WITHOUT_BARGEIN_ROUTE           "chre-route-without-bargein"
+#define AMBIENT_ENTITY_WITH_BARGEIN_ROUTE    "ambient-entity-route-with-bargein"
+#define AMBIENT_ENTITY_WITHOUT_BARGEIN_ROUTE "ambient-entity-route-without-bargein"
 
 int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
                 int length, int kw_type)
@@ -141,7 +135,7 @@ int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
         case 1: //AMBIENT
             ALOGV("+%s+ AMBIENT_KW_ID", __func__);
             err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                                            AMBIENT_INSTANCE_ID, 0,
+                                            AMBIENT_ENTITY_INSTANCE_ID, 0,
                                             0, IAXXX_HMD_BLOCK_ID);
             if (err < 0) {
                 ALOGE("%s: Failed to set ambient plgin reset param %s\n",
@@ -150,13 +144,13 @@ int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
             }
 
             err = iaxxx_odsp_plugin_set_parameter_blk(odsp_hdl,
-                                        AMBIENT_INSTANCE_ID, AMBIENT_SLOT_ID,
-                                        IAXXX_HMD_BLOCK_ID, data, length);
+                                    AMBIENT_ENTITY_INSTANCE_ID, AMBIENT_SLOT_ID,
+                                    IAXXX_HMD_BLOCK_ID, data, length);
             break;
         case 2: //ENTITY
             ALOGV("+%s+ Entity_KW_ID", __func__);
             err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                                            ENTITY_INSTANCE_ID, 0,
+                                            AMBIENT_ENTITY_INSTANCE_ID, 0,
                                             0, IAXXX_HMD_BLOCK_ID);
             if (err < 0) {
                 ALOGE("%s: Failed to set entity plgin reset param %s\n",
@@ -164,8 +158,8 @@ int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
                 goto exit;
             }
             err = iaxxx_odsp_plugin_set_parameter_blk(odsp_hdl,
-                                            ENTITY_INSTANCE_ID, ENTITY_SLOT_ID,
-                                            IAXXX_HMD_BLOCK_ID, data, length);
+                                    AMBIENT_ENTITY_INSTANCE_ID, ENTITY_SLOT_ID,
+                                    IAXXX_HMD_BLOCK_ID, data, length);
             break;
         default:
             ALOGE("%s: Unknown KW_ID\n", __func__);
@@ -204,9 +198,9 @@ int reset_ambient_plugin(struct iaxxx_odsp_hw *odsp_hdl)
 
     ALOGV("+%s+", __func__);
     err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                                        AMBIENT_INSTANCE_ID,
-                                        AMBIENT_RESET_PARAM_ID,
-                                        AMBIENT_RESET_PARAM_VAL,
+                                        AMBIENT_ENTITY_INSTANCE_ID,
+                                        AMBIENT_ENTITY_RESET_PARAM_ID,
+                                        AMBIENT_ENTITY_RESET_PARAM_VAL,
                                         IAXXX_HMD_BLOCK_ID);
     if (err != 0) {
             ALOGE("%s: ERROR: Set param for ambient lib reset failed %d(%s)",
@@ -341,117 +335,117 @@ int set_sensor_route(struct audio_route *route_hdl, bool enable)
     return err;
 }
 
-int set_ambient_audio_route(struct iaxxx_odsp_hw *odsp_hdl,
-                            struct audio_route *route_hdl,
-                            bool bargein)
+int set_ambient_entity_state(struct iaxxx_odsp_hw *odsp_hdl,
+                    unsigned int current)
 {
     int err = 0;
+    ALOGV("+%s+ enable models %x", __func__, current & PLUGIN2_MASK);
 
-    ALOGV("+%s bargein %d+", __func__, bargein);
-    // Set the events and params
-    err = iaxxx_odsp_plugin_setevent(odsp_hdl, AMBIENT_INSTANCE_ID,
-                                0x2, IAXXX_HMD_BLOCK_ID);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Ambient set event failed with error %d(%s)",
+    err = iaxxx_odsp_plugin_setevent(odsp_hdl, AMBIENT_ENTITY_INSTANCE_ID,
+                                    current & PLUGIN2_MASK, IAXXX_HMD_BLOCK_ID);
+    if (err < 0) {
+        ALOGE("%s: ERROR: ambient_entity set event failed with error %d(%s)",
             __func__, errno, strerror(errno));
         goto exit;
     }
+    if (current & AMBIENT_MASK) {
+        err = iaxxx_odsp_evt_subscribe(odsp_hdl, AMBIENT_ENTITY_EVT_SRC_ID,
+                                    AMBIENT_DETECTION, IAXXX_SYSID_HOST, 0);
+        if (err < 0) {
+            ALOGE("%s: ERROR: Ambient subscrive event failed"
+                " with error %d(%s)", __func__,
+                errno, strerror(errno));
+            goto exit;
+        }
 
-    ALOGD("Registering for Ambient event\n");
-
-    // Subscribe for events
-    err = iaxxx_odsp_evt_subscribe(odsp_hdl, AMBIENT_EVT_SRC_ID,
-                                AMBIENT_DETECTION, IAXXX_SYSID_HOST, 0);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Ambient subscribe event failed with error %d(%s)",
-            __func__, errno, strerror(errno));
-        goto exit;
     }
-
-    if (bargein == true)
-        err = audio_route_apply_and_update_path(route_hdl,
-                                        AMBIENT_AUDIO_WITH_BARGEIN_ROUTE);
-    else
-        err = audio_route_apply_and_update_path(route_hdl,
-                                        AMBIENT_AUDIO_WITHOUT_BARGEIN_ROUTE);
-    if (err)
-        ALOGE("%s: route apply fail %d", __func__, err);
+    if (current & ENTITY_MASK) {
+        err = iaxxx_odsp_evt_subscribe(odsp_hdl, AMBIENT_ENTITY_EVT_SRC_ID,
+                                    ENTITY_DETECTION, IAXXX_SYSID_HOST, 0);
+        if (err < 0) {
+            ALOGE("%s: ERROR: Entity subscrive event failed"
+                " with error %d(%s)", __func__,
+                errno, strerror(errno));
+            goto exit;
+        }
+    }
 
 exit:
     ALOGV("-%s-", __func__);
     return err;
 }
 
-int tear_ambient_audio_route(struct iaxxx_odsp_hw *odsp_hdl,
-                            struct audio_route *route_hdl,
-                            bool bargein)
+int tear_ambient_entity_state(struct iaxxx_odsp_hw *odsp_hdl,
+                    unsigned int current)
 {
     int err = 0;
-
-    ALOGV("+%s bargein %d+", __func__, bargein);
-    if (bargein == true)
-        err = audio_route_reset_and_update_path(route_hdl,
-                                        AMBIENT_AUDIO_WITH_BARGEIN_ROUTE);
-    else
-        err = audio_route_reset_and_update_path(route_hdl,
-                                        AMBIENT_AUDIO_WITHOUT_BARGEIN_ROUTE);
-    if (err)
-        ALOGE("%s: route reset fail %d", __func__, err);
-
-    err = iaxxx_odsp_evt_unsubscribe(odsp_hdl, AMBIENT_EVT_SRC_ID,
-                                    AMBIENT_DETECTION, IAXXX_SYSID_HOST);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Ambient unsubscrive event failed with error %d(%s)",
-            __func__, errno, strerror(errno));
+    ALOGV("+%s+ current %x", __func__, current & PLUGIN2_MASK);
+    if (current & AMBIENT_MASK) {
+        err = iaxxx_odsp_evt_unsubscribe(odsp_hdl, AMBIENT_ENTITY_EVT_SRC_ID,
+                                        AMBIENT_DETECTION, IAXXX_SYSID_HOST);
+        if (err < 0) {
+            ALOGE("%s: ERROR: Ambient unsubscrive event failed"
+                " with error %d(%s)", __func__,
+                errno, strerror(errno));
+            goto exit;
+        }
+        err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                                            AMBIENT_ENTITY_INSTANCE_ID,
+                                            AMBIENT_ENTITY_UNLOAD_PARAM_ID,
+                                            AMBIENT_UNLOAD_PARAM_VAL,
+                                            IAXXX_HMD_BLOCK_ID);
+        if (err < 0) {
+            ALOGE("%s: ERROR: Ambient model unload failed with error %d(%s)",
+                __func__, errno, strerror(errno));
+            goto exit;
+        }
+    }
+    if (current & ENTITY_MASK) {
+        err = iaxxx_odsp_evt_unsubscribe(odsp_hdl, AMBIENT_ENTITY_EVT_SRC_ID,
+                                        ENTITY_DETECTION, IAXXX_SYSID_HOST);
+        if (err < 0) {
+            ALOGE("%s: ERROR: Entity unsubscrive event failed"
+                " with error %d(%s)", __func__,
+                errno, strerror(errno));
+            goto exit;
+        }
+        err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
+                                            AMBIENT_ENTITY_INSTANCE_ID,
+                                            AMBIENT_ENTITY_UNLOAD_PARAM_ID,
+                                            ENTITY_UNLOAD_PARAM_VAL,
+                                            IAXXX_HMD_BLOCK_ID);
+        if (err < 0) {
+            ALOGE("%s: ERROR: Entity model unload failed with error %d(%s)",
+                __func__, errno, strerror(errno));
+            goto exit;
+        }
     }
 
-    ALOGV("-%s-", __func__);
-    return err;
-}
-
-int set_entity_route(struct iaxxx_odsp_hw *odsp_hdl,
-                    struct audio_route *route_hdl, bool bargein)
-{
-    int err = 0;
-
-    ALOGV("+%s bargein %d+", __func__, bargein);
-    // Set the events and params
-    err = iaxxx_odsp_plugin_setevent(odsp_hdl, ENTITY_INSTANCE_ID,
-                                    0x4, IAXXX_HMD_BLOCK_ID);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Entity set event failed with error %d(%s)",
-            __func__, errno, strerror(errno));
-        goto exit;
-    }
-
-    ALOGD("Registering for Entity event\n");
-
-    // Subscribe for events
-    err = iaxxx_odsp_evt_subscribe(odsp_hdl, ENTITY_EVT_SRC_ID,
-                                ENTITY_DETECTION, IAXXX_SYSID_HOST, 0);
-
-    if (err == -1) {
-        ALOGE("%s: ERROR: Hotword subscribe event failed with error %d(%s)",
-            __func__, errno, strerror(errno));
-        goto exit;
-    }
-
-    if (bargein == true)
-        err = audio_route_apply_and_update_path(route_hdl,
-                                            ENTITY_WITH_BARGEIN_ROUTE);
-    else
-        err = audio_route_apply_and_update_path(route_hdl,
-                                            ENTITY_WITHOUT_BARGEIN_ROUTE);
-    if (err)
-        ALOGE("%s: route apply fail %d", __func__, err);
 exit:
     ALOGV("-%s-", __func__);
     return err;
 }
 
-int tear_entity_route(struct iaxxx_odsp_hw *odsp_hdl,
-                    struct audio_route *route_hdl,
-                    bool bargein)
+int set_ambient_entity_route(struct audio_route *route_hdl, bool bargein)
+{
+    int err = 0;
+
+    ALOGV("+%s bargein %d+", __func__, bargein);
+
+    if (bargein == true)
+        err = audio_route_apply_and_update_path(route_hdl,
+                                        AMBIENT_ENTITY_WITH_BARGEIN_ROUTE);
+    else
+        err = audio_route_apply_and_update_path(route_hdl,
+                                        AMBIENT_ENTITY_WITHOUT_BARGEIN_ROUTE);
+    if (err)
+        ALOGE("%s: route apply fail %d", __func__, err);
+
+    ALOGV("-%s-", __func__);
+    return err;
+}
+
+int tear_ambient_entity_route(struct audio_route *route_hdl, bool bargein)
 {
     int err = 0;
 
@@ -459,19 +453,12 @@ int tear_entity_route(struct iaxxx_odsp_hw *odsp_hdl,
     /* check cvq node to send ioctl */
     if (bargein == true)
         err = audio_route_reset_and_update_path(route_hdl,
-                                            ENTITY_WITH_BARGEIN_ROUTE);
+                                        AMBIENT_ENTITY_WITH_BARGEIN_ROUTE);
     else
         err = audio_route_reset_and_update_path(route_hdl,
-                                            ENTITY_WITHOUT_BARGEIN_ROUTE);
+                                        AMBIENT_ENTITY_WITHOUT_BARGEIN_ROUTE);
     if (err)
         ALOGE("%s: route reset fail %d", __func__, err);
-
-    err = iaxxx_odsp_evt_unsubscribe(odsp_hdl, ENTITY_EVT_SRC_ID,
-                                    ENTITY_DETECTION, IAXXX_SYSID_HOST);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Hotword unsubscrive event failed with error %d(%s)",
-            __func__, errno, strerror(errno));
-    }
 
     ALOGV("-%s-", __func__);
     return err;
@@ -639,18 +626,24 @@ int flush_model(struct iaxxx_odsp_hw *odsp_hdl, int kw_type)
     {
         case 0: //HOTWORD
             err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                        HOTWORD_INSTANCE_ID, SND_MODEL_UNLOAD_PARAM_ID,
-                        HOTWORD_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
+                                                HOTWORD_INSTANCE_ID,
+                                                HOTWORD_UNLOAD_PARAM_ID,
+                                                HOTWORD_UNLOAD_PARAM_VAL,
+                                                IAXXX_HMD_BLOCK_ID);
             break;
         case 1: //AMBIENT
             err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                        AMBIENT_INSTANCE_ID, SND_MODEL_UNLOAD_PARAM_ID,
-                        AMBIENT_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
+                                                AMBIENT_ENTITY_INSTANCE_ID,
+                                                AMBIENT_ENTITY_UNLOAD_PARAM_ID,
+                                                AMBIENT_UNLOAD_PARAM_VAL,
+                                                IAXXX_HMD_BLOCK_ID);
             break;
         case 2: //ENTITY
             err = iaxxx_odsp_plugin_set_parameter(odsp_hdl,
-                        ENTITY_INSTANCE_ID, ENTITY_UNLOAD_PARAM_ID,
-                        ENTITY_UNLOAD_PARAM_VAL, IAXXX_HMD_BLOCK_ID);
+                                                AMBIENT_ENTITY_INSTANCE_ID,
+                                                AMBIENT_ENTITY_UNLOAD_PARAM_ID,
+                                                ENTITY_UNLOAD_PARAM_VAL,
+                                                IAXXX_HMD_BLOCK_ID);
             break;
         default:
             ALOGE("%s: Unknown KW_ID\n", __func__);
@@ -675,9 +668,9 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
     struct iaxxx_create_config_data cdata;
 
     ALOGV("+%s+", __func__);
-    /* SOUND_TRIGGER_PACKAGE */
+    /* AMBIENT_HOTWORD_PACKAGE */
     // Download packages for ok google
-    err = iaxxx_odsp_package_load(odsp_hdl, SOUND_TRIGGER_PACKAGE,
+    err = iaxxx_odsp_package_load(odsp_hdl, AMBIENT_HOTWORD_PACKAGE,
                                 HOTWORD_PKG_ID);
     if (err == -1) {
         ALOGE("%s: ERROR: Failed to load SoundTrigger %d(%s)",
@@ -685,18 +678,9 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
         return err;
     }
 
-    // Download packages for ambient audio
-    err = iaxxx_odsp_package_load(odsp_hdl, SOUND_TRIGGER_PACKAGE,
-                                AMBIENT_PKG_ID);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Failed to load Ambient %d(%s)",
-            __func__, errno, strerror(errno));
-        return err;
-    }
-
-    // Download packages for entity audio
+    // Download packages for ambient & entity
     err = iaxxx_odsp_package_load(odsp_hdl, AMBIENT_HOTWORD_PACKAGE,
-                                ENTITY_PKG_ID);
+                                AMBIENT_ENTITY_PKG_ID);
     if (err == -1) {
         ALOGE("%s: ERROR: Failed to load ENTITY %d(%s)",
             __func__, errno, strerror(errno));
@@ -751,16 +735,15 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
         return err;
     }
 
-    // Create Entity plugin
-    err = iaxxx_odsp_plugin_create(odsp_hdl, ENTITY_INSTANCE_ID, ENTITY_PRIORITY,
-                                ENTITY_PKG_ID, ENTITY_PLUGIN_IDX,
-                                IAXXX_HMD_BLOCK_ID);
+    // Create Ambient & Entity plugin
+    err = iaxxx_odsp_plugin_create(odsp_hdl, AMBIENT_ENTITY_INSTANCE_ID,
+                                AMBIENT_ENTITY_PRIORITY, AMBIENT_ENTITY_PKG_ID,
+                                AMBIENT_ENTITY_PLUGIN_IDX, IAXXX_HMD_BLOCK_ID);
     if (err == -1) {
         ALOGE("%s: ERROR: Failed to create Entity plugin%d(%s)",
             __func__, errno, strerror(errno));
         return err;
     }
-
 
     /* SENSOR MANAGER PACKAGE LOAD AND ROUTE SETUP */
     // Download packages
@@ -813,7 +796,8 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
     }
     /* SENSOR MANAGER ROUTE END */
 
-    /* Ambient 10 sec Q15 buffer plugin */
+
+    /* Ambient & Entity 10 sec Q15 buffer plugin */
     /* TODO Need to have a check if buffer package is not
      * loaded then we have to load it here
      */
@@ -837,16 +821,6 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
                                 IAXXX_HMD_BLOCK_ID);
     if (err == -1) {
         ALOGE("%s: ERROR: Failed to create Ambient Buffer %d(%s)",
-            __func__, errno, strerror(errno));
-        return err;
-    }
-
-    // Create Ambient plugin
-    err = iaxxx_odsp_plugin_create(odsp_hdl, AMBIENT_INSTANCE_ID,
-                                AMBIENT_PRIORITY, AMBIENT_PKG_ID,
-                                AMBIENT_PLUGIN_IDX, IAXXX_HMD_BLOCK_ID);
-    if (err == -1) {
-        ALOGE("%s: ERROR: Failed to create Ambient Plugin %d(%s)",
             __func__, errno, strerror(errno));
         return err;
     }
@@ -957,7 +931,7 @@ int get_entity_param_blk(struct iaxxx_odsp_hw *odsp_hdl, void *payload,
 {
     int err = 0;
     err = iaxxx_odsp_plugin_get_parameter_blk(odsp_hdl,
-                                            ENTITY_INSTANCE_ID,
+                                            AMBIENT_ENTITY_INSTANCE_ID,
                                             IAXXX_HMD_BLOCK_ID,
                                             100, payload,
                                             payload_size);
