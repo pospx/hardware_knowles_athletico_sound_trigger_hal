@@ -43,7 +43,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "iaxxx-module.h"
-#include "cvq_ioctl.h"
+#include "oslo_sound_model_control.h"
 
 #define LOG_TAG "ia_sensor_param_test"
 
@@ -384,7 +384,7 @@ bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
     uint32_t radar_frames_initial;
     time_t start_time;
 
-    force_set_sensor_route(true);
+    osloSoundModelEnable(true);
 
     start_time = time(NULL);
     radar_frames_initial = get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
@@ -401,7 +401,7 @@ bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
             usleep(50 * 1000); // 50ms
     } while (difftime(time(NULL), start_time) <= ping_timeout_sec);
 
-    force_set_sensor_route(false);
+    osloSoundModelEnable(false);
 
     ALOGD("%s: %s", __func__, (ret ? "PASS" : "FAIL"));
     fprintf(stdout, "%s: %s\n", __func__, (ret ? "PASS" : "FAIL"));
@@ -685,7 +685,7 @@ int main(int argc, char *argv[]) {
         } else if ('p' == use_case) {
             ping_test(smd, ping_timeout_sec);
         } else if ('r' == use_case) {
-            force_set_sensor_route(route_enable);
+            osloSoundModelEnable(route_enable);
         } else if ('d' == use_case) {
             read_register(smd, reg_addr);
         } else if ('w' == use_case) {

@@ -36,6 +36,7 @@
 #include <hardware/hardware.h>
 
 #include "cvq_ioctl.h"
+#include "sound_trigger_hw_iaxxx.h"
 #include "sound_trigger_intf.h"
 
 #define MAX_GENERIC_SOUND_MODELS    (9)
@@ -70,12 +71,6 @@
 #else
 #define ADNC_STRM_LIBRARY_PATH "/vendor/lib/hw/adnc_strm.primary.default.so"
 #endif
-
-#define HOTWORD_AUDIO_MODEL  "7038ddc8-30f2-11e6-b0ac-40a8f03d3f15"
-#define SENSOR_MANAGER_MODEL "5c0c296d-204c-4c2b-9f85-e50746caf914"
-#define AMBIENT_AUDIO_MODEL  "6ac81359-2dc2-4fea-a0a0-bd378ed6da4f"
-#define CHRE_AUDIO_MODEL     "57caddb1-acdb-4dce-8cb0-2e95a2313aee"
-#define ENTITY_AUDIO_MODEL   "12caddb1-acdb-4dce-8cb0-2e95a2313aee"
 
 #define HOTWORD_MODEL (0)
 #define AMBIENT_MODEL (1)

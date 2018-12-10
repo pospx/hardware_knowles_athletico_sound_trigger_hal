@@ -106,14 +106,17 @@ include $(CLEAR_VARS)
 LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := oslo_config_test
 LOCAL_SRC_FILES := tests/oslo_config_test.c \
-				   cvq_util.c
+			tests/oslo_sound_model_control.cpp
 LOCAL_C_INCLUDES += external/tinyalsa/include \
 			$(call include-path-for, audio-route)
 LOCAL_32_BIT_ONLY := true
+LOCAL_HEADER_LIBRARIES := libhardware_headers
 LOCAL_SHARED_LIBRARIES := liblog \
 			libutils \
 			libcutils \
-			libtinyalsa
+			libtinyalsa \
+			libhidlbase \
+			android.hardware.soundtrigger@2.0
 LOCAL_PROPRIETARY_MODULE := true
 
 include $(BUILD_EXECUTABLE)
