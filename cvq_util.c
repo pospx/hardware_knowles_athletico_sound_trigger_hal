@@ -80,7 +80,7 @@
 
 #define HOTWORD_SLOT_ID     1
 #define AMBIENT_SLOT_ID     3
-#define ENTITY_SLOT_ID      4
+#define ENTITY_SLOT_ID      5
 
 #define HOTWORD_UNLOAD_PARAM_ID             1
 #define AMBIENT_ENTITY_UNLOAD_PARAM_ID      1
@@ -96,7 +96,8 @@
 #define BUFFER_CONFIG_OSLO_VAL      "BufferConfigValOslo.bin"
 #define BUFFER_CONFIG_AMBIENT_VAL   "BufferConfigValAmbient.bin"
 #define OK_GOOGLE_PACKAGE           "OkGooglePackage.bin"
-#define AMBIENT_HOTWORD_PACKAGE     "AmbientHotwordPackage.bin"
+#define AMBIENT_EC_PACKAGE          "AmbientECPackage.bin"
+#define AMBIENT_DA_PACKAGE          "AmbientDAPackage.bin"
 #define SENSOR_PACKAGE              "OsloSensorPackage.bin"
 #define AEC_PASSTHROUGH_PACKAGE     "PassthruPackage.bin"
 
@@ -668,18 +669,18 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
     struct iaxxx_create_config_data cdata;
 
     ALOGV("+%s+", __func__);
-    /* AMBIENT_HOTWORD_PACKAGE */
+    /* AMBIENT_EC_PACKAGE */
     // Download packages for ok google
-    err = iaxxx_odsp_package_load(odsp_hdl, AMBIENT_HOTWORD_PACKAGE,
+    err = iaxxx_odsp_package_load(odsp_hdl, AMBIENT_EC_PACKAGE,
                                 HOTWORD_PKG_ID);
     if (err == -1) {
         ALOGE("%s: ERROR: Failed to load SoundTrigger %d(%s)",
             __func__, errno, strerror(errno));
         return err;
     }
-
+    /* AMBIENT_DA_PACKAGE */
     // Download packages for ambient & entity
-    err = iaxxx_odsp_package_load(odsp_hdl, AMBIENT_HOTWORD_PACKAGE,
+    err = iaxxx_odsp_package_load(odsp_hdl, AMBIENT_DA_PACKAGE,
                                 AMBIENT_ENTITY_PKG_ID);
     if (err == -1) {
         ALOGE("%s: ERROR: Failed to load ENTITY %d(%s)",
