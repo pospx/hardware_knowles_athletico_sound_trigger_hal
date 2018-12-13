@@ -88,7 +88,7 @@
 
 #define HOTWORD_UNLOAD_PARAM_VAL            1
 #define AMBIENT_UNLOAD_PARAM_VAL            3
-#define ENTITY_UNLOAD_PARAM_VAL             4
+#define ENTITY_UNLOAD_PARAM_VAL             5
 #define AMBIENT_ENTITY_RESET_PARAM_VAL      3
 
 #define BUFFER_PACKAGE              "BufferPackage.bin"
