@@ -45,9 +45,9 @@
 #include "iaxxx-module.h"
 #include "oslo_sound_model_control.h"
 
-#define LOG_TAG "ia_sensor_param_test"
+#define LOG_TAG "oslo_config_test"
 
-#include <cutils/log.h>
+#include <log/log.h>
 
 #define GETOPT_HELP_CHAR (CHAR_MIN - 2)
 
