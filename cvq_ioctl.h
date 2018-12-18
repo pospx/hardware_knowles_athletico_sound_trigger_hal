@@ -27,6 +27,85 @@
 #define PLUGIN1_MASK (HOTWORD_MASK)
 #define PLUGIN2_MASK (AMBIENT_MASK | ENTITY_MASK)
 
+#define HOTWORD_EVT_SRC_ID            IAXXX_SYSID_PLUGIN_INSTANCE_0
+#define OSLO_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_3
+#define CHRE_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_6
+#define AMBIENT_ENTITY_EVT_SRC_ID     IAXXX_SYSID_PLUGIN_INSTANCE_5
+
+#define HOTWORD_PKG_ID      11
+#define HOTWORD_PLUGIN_IDX  0
+#define HOTWORD_INSTANCE_ID 0
+#define HOTWORD_PRIORITY    1
+
+#define AMBIENT_ENTITY_PKG_ID          12
+#define AMBIENT_ENTITY_PLUGIN_IDX      0
+#define AMBIENT_ENTITY_INSTANCE_ID     5
+#define AMBIENT_ENTITY_PRIORITY        1
+
+#define SENSOR_PKG_ID           0
+#define SENSOR_PLUGIN_IDX       0
+#define SENSOR_INSTANCE_ID      3
+#define SENSOR_PRIORITY         1
+#define SENSOR_PRESENCE_MODE    0
+#define SENSOR_DETECTED_MODE    1
+#define SENSOR_MAX_MODE         2
+
+#define AEC_PKG_ID       7
+#define AEC_PLUGIN_IDX   0
+#define AEC_BLOCK_ID     1
+#define AEC_INSTANCE_ID  7
+#define AEC_PRIORITY     1
+
+#define CHRE_PLUGIN_IDX      0
+#define CHRE_INSTANCE_ID     6
+#define CHRE_EVT_ID          3
+#define CHRE_EVT_PARAM_ID    8
+
+#define BUF_PACKAGE_ID      4
+#define BUF_PLUGIN_IDX      0
+#define BUF_PRIORITY        1
+
+#define HOTWORD_BUF_INSTANCE_ID     1
+#define OSLO_BUF_INSTANCE_ID        2
+#define AMBIENT_BUF_INSTANCE_ID     4
+
+#define HOTWORD_DETECTION   0
+#define AMBIENT_DETECTION   1
+#define ENTITY_DETECTION    2
+
+#define HOTWORD_SLOT_ID     1
+#define AMBIENT_SLOT_ID     3
+#define ENTITY_SLOT_ID      5
+
+#define HOTWORD_UNLOAD_PARAM_ID             1
+#define AMBIENT_ENTITY_UNLOAD_PARAM_ID      1
+#define AMBIENT_ENTITY_RESET_PARAM_ID       2
+
+#define HOTWORD_UNLOAD_PARAM_VAL            1
+#define AMBIENT_UNLOAD_PARAM_VAL            3
+#define ENTITY_UNLOAD_PARAM_VAL             5
+#define AMBIENT_ENTITY_RESET_PARAM_VAL      3
+
+#define BUFFER_PACKAGE              "BufferPackage.bin"
+#define BUFFER_CONFIG_VAL           "BufferConfigVal.bin"
+#define BUFFER_CONFIG_OSLO_VAL      "BufferConfigValOslo.bin"
+#define BUFFER_CONFIG_AMBIENT_VAL   "BufferConfigValAmbient.bin"
+#define OK_GOOGLE_PACKAGE           "OkGooglePackage.bin"
+#define AMBIENT_EC_PACKAGE          "AmbientECPackage.bin"
+#define AMBIENT_DA_PACKAGE          "AmbientDAPackage.bin"
+#define SENSOR_PACKAGE              "OsloSensorPackage.bin"
+#define AEC_PASSTHROUGH_PACKAGE     "PassthruPackage.bin"
+
+#define MIC_ROUTE                            "mic1-route"
+#define BARGEIN_ROUTE                        "bargein-route"
+#define SENSOR_ROTUE                         "oslo-route"
+#define HOTWORD_WITH_BARGEIN_ROUTE           "hotword-route-with-bargein"
+#define HOTWORD_WITHOUT_BARGEIN_ROUTE        "hotword-route-without-bargein"
+#define CHRE_WITH_BARGEIN_ROUTE              "chre-route-with-bargein"
+#define CHRE_WITHOUT_BARGEIN_ROUTE           "chre-route-without-bargein"
+#define AMBIENT_ENTITY_WITH_BARGEIN_ROUTE    "ambient-entity-route-with-bargein"
+#define AMBIENT_ENTITY_WITHOUT_BARGEIN_ROUTE "ambient-entity-route-without-bargein"
+
 int force_set_sensor_route(bool enable);
 int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
                 int length, int kw_type);

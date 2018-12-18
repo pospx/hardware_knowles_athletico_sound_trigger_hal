@@ -116,6 +116,7 @@ LOCAL_SHARED_LIBRARIES := liblog \
 			libcutils \
 			libtinyalsa \
 			libhidlbase \
+			libodsp \
 			android.hardware.soundtrigger@2.0
 LOCAL_PROPRIETARY_MODULE := true
 

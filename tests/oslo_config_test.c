@@ -42,6 +42,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "cvq_ioctl.h"
 #include "iaxxx-module.h"
 #include "oslo_sound_model_control.h"
 
@@ -161,8 +163,8 @@ typedef struct {
     char *setting_name;
 } oslo_settings_t;
 
-/* map setting name to param id */
-static const oslo_settings_t oslo_settings[] =
+/* map oslo driver setting name to param id */
+static const oslo_settings_t oslo_driver_settings[] =
 {
     {OSLO_CONFIG_DEFAULT,                                   "config_default"},
     {OSLO_CONFIG_PRESENCE,                                  "config_presence"},
@@ -229,8 +231,26 @@ static const oslo_settings_t oslo_settings[] =
     {OSLO_PARAM_CHARGE_PUMP,                                "param_charge_pump"},
 };
 
+/* copy of OsloSensorPluginInternal.h from athletico repository */
+/* OsloSensor Plugin Param Ids */
+typedef enum oslo_sensor_param_id_e
+{
+    OSLO_SENSOR_PARAM_MODE_1_SWITCH_COUNT = 0,
+    OSLO_SENSOR_PARAM_MODE_2_SWITCH_COUNT,
+    OSLO_SENSOR_PARAM_MODE,
+
+    /* Force enums to be of size int */
+    OSLO_SENSOR_PARAM_ID_FORCE_SIZE = INT_MAX,
+} oslo_sensor_param_id_t;
+
+/* map oslo plugin setting name to param id */
+static const oslo_settings_t oslo_plugin_settings[] =
+{
+    {OSLO_SENSOR_PARAM_MODE,                                "plugin_mode"},
+};
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
-#define OSLO_SETTINGS_SIZE COUNT_OF(oslo_settings)
+#define OSLO_DRIVER_SETTINGS_SIZE COUNT_OF(oslo_driver_settings)
+#define OSLO_PLUGIN_SETTINGS_SIZE COUNT_OF(oslo_plugin_settings)
 
 struct ia_sensor_mgr {
     FILE *dev_node;
@@ -294,18 +314,22 @@ void usage() {
 
     fputs("\n\
     List of all <param_name>\n\
-    ---------\n\
+    ---------\
     ", stdout);
+    fputs("\n", stdout);
 
     unsigned int i;
-    for (i = 0; i < OSLO_SETTINGS_SIZE; i ++) {
-        fprintf(stderr, "    %s\n", oslo_settings[i].setting_name, stdout);
+    for (i = 0; i < OSLO_DRIVER_SETTINGS_SIZE; i ++) {
+        fprintf(stdout, "    %s\n", oslo_driver_settings[i].setting_name, stdout);
+    }
+    for (i = 0; i < OSLO_PLUGIN_SETTINGS_SIZE; i ++) {
+        fprintf(stdout, "    %s\n", oslo_plugin_settings[i].setting_name, stdout);
     }
 
     exit(EXIT_FAILURE);
 }
 
-void set_param(struct ia_sensor_mgr *smd, int param_id, float param_val) {
+void oslo_driver_set_param(struct ia_sensor_mgr *smd, int param_id, float param_val) {
     int err = 0;
     struct iaxxx_sensor_param sp;
 
@@ -333,7 +357,7 @@ void set_param(struct ia_sensor_mgr *smd, int param_id, float param_val) {
 
 }
 
-uint32_t get_param(struct ia_sensor_mgr *smd, int param_id) {
+uint32_t oslo_driver_get_param(struct ia_sensor_mgr *smd, int param_id) {
     struct iaxxx_sensor_param sp;
     int err = 0;
     ALOGD ("Get param - param_id 0x%X", param_id);
@@ -362,16 +386,91 @@ uint32_t get_param(struct ia_sensor_mgr *smd, int param_id) {
     return sp.param_val;
 }
 
-int oslo_setting_lookup(char *in)
+void oslo_plugin_set_param(int param_id, float param_val) {
+    struct iaxxx_odsp_hw *ioh = NULL;
+    int err = 0;
+
+    ioh = iaxxx_odsp_init();
+    if (ioh == NULL) {
+        ALOGE("ERROR: Failed to init odsp HAL");
+        return;
+    }
+
+    err = iaxxx_odsp_plugin_set_parameter(ioh, SENSOR_INSTANCE_ID, param_id,
+                                          param_val, IAXXX_HMD_BLOCK_ID);
+    if (err != 0) {
+        ALOGE("Failed to set param_id %u with error %d", param_id, err);
+    }
+    else {
+        ALOGD("Set param_id %d with value %f", param_id, param_val);
+    }
+
+    if (ioh) {
+        err = iaxxx_odsp_deinit(ioh);
+        if (err != 0) {
+            ALOGE("Failed to deinit the odsp HAL");
+        }
+    }
+}
+
+uint32_t oslo_plugin_get_param(int param_id) {
+    struct iaxxx_odsp_hw *ioh = NULL;
+    int err = 0;
+    uint32_t param_val;
+
+    ioh = iaxxx_odsp_init();
+    if (ioh == NULL) {
+        ALOGE("ERROR: Failed to init odsp HAL");
+        return 0;
+    }
+
+    err = iaxxx_odsp_plugin_get_parameter(ioh, SENSOR_INSTANCE_ID, param_id,
+                                          IAXXX_HMD_BLOCK_ID, &param_val);
+    if (err != 0) {
+        ALOGE("Failed to get param_id %u with error %d", param_id, err);
+    }
+    else {
+        ALOGD("Value of param 0x%X is %zu", param_id, param_val);
+        fprintf(stdout, "Value of param 0x%X is %zu\n", param_id, param_val);
+    }
+
+    if (ioh) {
+        err = iaxxx_odsp_deinit(ioh);
+        if (err != 0) {
+            ALOGE("Failed to deinit the odsp HAL");
+        }
+    }
+
+    return param_val;
+}
+
+int oslo_driver_setting_lookup(char *in)
 {
     unsigned int i;
     int ret = -1;
 
-    for (i = 0; i < OSLO_SETTINGS_SIZE; i++)
+    for (i = 0; i < OSLO_DRIVER_SETTINGS_SIZE; i++)
     {
-        if (strcmp(in, oslo_settings[i].setting_name) == 0)
+        if (strcmp(in, oslo_driver_settings[i].setting_name) == 0)
         {
-            ret = oslo_settings[i].setting_id;
+            ret = oslo_driver_settings[i].setting_id;
+            break;
+        }
+    }
+
+    return ret;
+}
+
+int oslo_plugin_setting_lookup(char *in)
+{
+    unsigned int i;
+    int ret = -1;
+
+    for (i = 0; i < OSLO_PLUGIN_SETTINGS_SIZE; i++)
+    {
+        if (strcmp(in, oslo_plugin_settings[i].setting_name) == 0)
+        {
+            ret = oslo_plugin_settings[i].setting_id;
             break;
         }
     }
@@ -387,10 +486,10 @@ bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
     osloSoundModelEnable(true);
 
     start_time = time(NULL);
-    radar_frames_initial = get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
+    radar_frames_initial = oslo_driver_get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
 
     do {
-        uint32_t radar_frames = get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
+        uint32_t radar_frames = oslo_driver_get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
         if (radar_frames > radar_frames_initial) {
             ALOGD("%s: frame number increased (%d, %d)",
                   __func__, radar_frames_initial, radar_frames);
@@ -417,7 +516,7 @@ void read_register(struct ia_sensor_mgr *smd, uint32_t reg_addr) {
         return;
     }
 
-    reg_val = get_param(smd, OSLO_REGISTER_MIN + reg_addr);
+    reg_val = oslo_driver_get_param(smd, OSLO_REGISTER_MIN + reg_addr);
 
     ALOGD("reg[0x%02x]: 0x%06x\n", reg_addr, reg_val);
     fprintf(stdout, "reg[0x%02x]: 0x%06x\n", reg_addr, reg_val);
@@ -429,7 +528,7 @@ void write_register(struct ia_sensor_mgr *smd, uint32_t reg_addr, uint32_t reg_v
         return;
     }
 
-    set_param(smd, OSLO_REGISTER_MIN + reg_addr, reg_val);
+    oslo_driver_set_param(smd, OSLO_REGISTER_MIN + reg_addr, reg_val);
 
     ALOGD("Write reg[0x%02x] val:0x%06x\n", reg_addr, reg_val);
     fprintf(stdout, "Write reg[0x%02x] val:0x%06x\n", reg_addr, reg_val);
@@ -541,7 +640,8 @@ int cal_write_persist(const struct cal_coefficient* coef) {
 int main(int argc, char *argv[]) {
     struct ia_sensor_mgr * smd;
     char use_case;
-    int param_id = -1;
+    int driver_param_id = -1;
+    int plugin_param_id = -1;
     int c;
     float param_val = 0.0;
     uint32_t ping_timeout_sec;
@@ -562,8 +662,9 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Incorrect usage, s option requires an argument");
                 usage();
             } else {
-                param_id = oslo_setting_lookup(optarg);
-                if (param_id == -1)
+                driver_param_id = oslo_driver_setting_lookup(optarg);
+                plugin_param_id = oslo_plugin_setting_lookup(optarg);
+                if (driver_param_id == -1 && plugin_param_id == -1)
                 {
                     fprintf(stderr, "Invalid setting %s", optarg);
                     usage();
@@ -594,8 +695,9 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "Incorrect usage, g option requires an argument");
                 usage();
             } else {
-                param_id = oslo_setting_lookup(optarg);
-                if (param_id == -1)
+                driver_param_id = oslo_driver_setting_lookup(optarg);
+                plugin_param_id = oslo_plugin_setting_lookup(optarg);
+                if (driver_param_id == -1 && plugin_param_id == -1)
                 {
                     fprintf(stderr, "Invalid setting %s", optarg);
                     usage();
@@ -679,9 +781,19 @@ int main(int argc, char *argv[]) {
         }
 
         if ('v' == use_case) {
-            set_param(smd, param_id, param_val);
+            if (driver_param_id != -1) {
+                oslo_driver_set_param(smd, driver_param_id, param_val);
+            }
+            else if (plugin_param_id != -1) {
+                oslo_plugin_set_param(plugin_param_id, param_val);
+            }
         } else if ('g' == use_case) {
-            get_param(smd, param_id);
+            if (driver_param_id != -1) {
+                oslo_driver_get_param(smd, driver_param_id);
+            }
+            else if (plugin_param_id != -1) {
+                oslo_plugin_get_param(plugin_param_id);
+            }
         } else if ('p' == use_case) {
             ping_test(smd, ping_timeout_sec);
         } else if ('r' == use_case) {
