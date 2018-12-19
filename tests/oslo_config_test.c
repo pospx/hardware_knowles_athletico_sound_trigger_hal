@@ -92,6 +92,7 @@ typedef enum
     OSLO_CONTROL_STRIP_HEADERS,
     OSLO_CONTROL_SLPI_INT,
     OSLO_CONTROL_STOP,
+    OSLO_CONTROL_SIMULATE_RADAR_DATA,
 
     /* oslo settings */
     OSLO_PARAM_REQUEST_RATE = OSLO_SETTING_START_INDEX,
@@ -177,6 +178,7 @@ static const oslo_settings_t oslo_driver_settings[] =
     {OSLO_CONTROL_STRIP_HEADERS,                            "oslo_control_strip_headers"},
     {OSLO_CONTROL_SLPI_INT,                                 "oslo_control_slpi_interrupt"},
     {OSLO_CONTROL_STOP,                                     "oslo_control_stop"},
+    {OSLO_CONTROL_SIMULATE_RADAR_DATA,                      "oslo_control_simulate_radar_data"},
     {OSLO_PARAM_REQUEST_RATE,                               "param_request_rate"},
     {OSLO_PARAM_REQUEST_ANTENNA_MASK,                       "param_request_antenna_mask"},
     {OSLO_PARAM_TX_POWER,                                   "param_tx_power"},
