@@ -486,12 +486,24 @@ int oslo_plugin_setting_lookup(char *in)
     return ret;
 }
 
+void oslo_enable(struct ia_sensor_mgr *smd, bool enable) {
+    if (enable) {
+        osloSoundModelEnable(true);
+        oslo_driver_set_param(smd, OSLO_CONTROL_RESTART, 1);
+    }
+    else {
+        oslo_driver_set_param(smd, OSLO_CONTROL_STOP, 0);
+        sleep(1);
+        osloSoundModelEnable(false);
+    }
+}
+
 bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
     bool ret = false;
     uint32_t radar_frames_initial;
     time_t start_time;
 
-    osloSoundModelEnable(true);
+    oslo_enable(smd, true);
 
     start_time = time(NULL);
     radar_frames_initial = oslo_driver_get_param(smd, SENSOR_PARAM_FRAMES_PROCESSED);
@@ -508,7 +520,7 @@ bool ping_test(struct ia_sensor_mgr *smd, uint32_t ping_timeout_sec) {
             usleep(50 * 1000); // 50ms
     } while (difftime(time(NULL), start_time) <= ping_timeout_sec);
 
-    osloSoundModelEnable(false);
+    oslo_enable(smd, false);
 
     ALOGD("%s: %s", __func__, (ret ? "PASS" : "FAIL"));
     fprintf(stdout, "%s: %s\n", __func__, (ret ? "PASS" : "FAIL"));
@@ -805,7 +817,7 @@ int main(int argc, char *argv[]) {
         } else if ('p' == use_case) {
             ping_test(smd, ping_timeout_sec);
         } else if ('r' == use_case) {
-            osloSoundModelEnable(route_enable);
+            oslo_enable(smd, route_enable);
         } else if ('d' == use_case) {
             read_register(smd, reg_addr);
         } else if ('w' == use_case) {
