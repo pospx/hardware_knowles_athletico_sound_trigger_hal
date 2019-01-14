@@ -94,6 +94,7 @@
 #define AMBIENT_EC_PACKAGE          "AmbientECPackage.bin"
 #define AMBIENT_DA_PACKAGE          "AmbientDAPackage.bin"
 #define SENSOR_PACKAGE              "OsloSensorPackage.bin"
+#define SENSOR_CONFIG_VAL           "OsloSensorConfig.bin"
 #define AEC_PASSTHROUGH_PACKAGE     "PassthruPackage.bin"
 
 #define MIC_ROUTE                            "mic1-route"

@@ -691,6 +691,18 @@ int setup_chip(struct iaxxx_odsp_hw *odsp_hdl)
         return err;
     }
 
+    cdata.type = CONFIG_FILE;
+    cdata.data.fdata.filename = SENSOR_CONFIG_VAL;
+    err = iaxxx_odsp_plugin_set_creation_config(odsp_hdl,
+                                                SENSOR_INSTANCE_ID,
+                                                IAXXX_HMD_BLOCK_ID,
+                                                cdata);
+    if (err == -1) {
+        ALOGE("%s: ERROR: Sensor configuration %d(%s)",
+            __func__, errno, strerror(errno));
+        return err;
+    }
+
     // Create Buffer plugin
     err = iaxxx_odsp_plugin_create(odsp_hdl, OSLO_BUF_INSTANCE_ID, BUF_PRIORITY,
                                 BUF_PACKAGE_ID, BUF_PLUGIN_IDX,
