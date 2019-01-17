@@ -170,6 +170,7 @@ typedef struct {
 /* map oslo driver setting name to param id */
 static const oslo_settings_t oslo_driver_settings[] =
 {
+    {SENSOR_PARAM_FRAMES_PROCESSED,                         "frames_processed"},
     {OSLO_CONFIG_DEFAULT,                                   "config_default"},
     {OSLO_CONFIG_PRESENCE,                                  "config_presence"},
     {OSLO_CONFIG_CONTINUOUS,                                "config_continuous"},
