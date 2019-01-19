@@ -99,6 +99,22 @@ exit:
     return err;
 }
 
+int get_model_state(struct iaxxx_odsp_hw *odsp_hdl, const uint32_t inst_id,
+                    const uint32_t param_val)
+{
+    int err = 0;
+    const uint32_t param_id = AMBIENT_ENTITY_GET_MODEL_STATE_PARAM_ID;
+    const uint32_t block_id = IAXXX_HMD_BLOCK_ID;
+
+    err = iaxxx_odsp_plugin_set_parameter(odsp_hdl, inst_id, param_id,
+                                          param_val, block_id);
+    if (err != 0) {
+        ALOGE("%s: ERROR: Failed to get the model state", __func__);
+    }
+
+    return err;
+}
+
 int get_event(struct iaxxx_odsp_hw *odsp_hdl, struct iaxxx_get_event_info *ge)
 {
     int err = 0;

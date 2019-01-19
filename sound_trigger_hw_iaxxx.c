@@ -110,6 +110,7 @@ struct model_info {
     int data_sz;
     bool is_loaded;
     bool is_active;
+    bool is_state_query;
 };
 
 struct knowles_sound_trigger_device {
@@ -338,7 +339,8 @@ static char *stdev_keyphrase_event_alloc(sound_model_handle_t handle,
 }
 
 static char *stdev_generic_event_alloc(int model_handle, void *payload,
-                                    unsigned int payload_size)
+                                    unsigned int payload_size,
+                                    int recognition_status)
 {
     char *data;
     struct sound_trigger_generic_recognition_event *event;
@@ -352,7 +354,7 @@ static char *stdev_generic_event_alloc(int model_handle, void *payload,
     }
 
     event = (struct sound_trigger_generic_recognition_event *)data;
-    event->common.status = RECOGNITION_STATUS_SUCCESS;
+    event->common.status = recognition_status;
     event->common.type = SOUND_MODEL_TYPE_GENERIC;
     event->common.model = model_handle;
 
@@ -715,13 +717,21 @@ static void *callback_thread_loop(void *context)
                 }
                 int idx = find_handle_for_kw_id(stdev, kwid);
                 if (idx < MAX_MODELS && stdev->models[idx].is_active == true) {
+                    int recognition_status = RECOGNITION_STATUS_SUCCESS;
+                    if (stdev->models[idx].is_state_query == true) {
+                        recognition_status =
+                            RECOGNITION_STATUS_GET_STATE_RESPONSE;
+
+                        // We need to send this only once, so reset now
+                        stdev->models[idx].is_state_query = false;
+                    }
                     if (stdev->models[idx].type == SOUND_MODEL_TYPE_KEYPHRASE) {
                         struct sound_trigger_phrase_recognition_event *event;
                         event = (struct sound_trigger_phrase_recognition_event*)
                                     stdev_keyphrase_event_alloc(
                                                 stdev->models[idx].model_handle,
                                                 stdev->models[idx].config,
-                                                RECOGNITION_STATUS_SUCCESS);
+                                                recognition_status);
                         if (event) {
                             struct model_info *model;
                             model = &stdev->models[idx];
@@ -744,7 +754,8 @@ static void *callback_thread_loop(void *context)
                                     stdev_generic_event_alloc(
                                             stdev->models[idx].model_handle,
                                             payload,
-                                            payload_size);
+                                            payload_size,
+                                            recognition_status);
                         if (event) {
                             struct model_info *model;
                             model = &stdev->models[idx];
@@ -1102,6 +1113,76 @@ exit:
     return status;
 }
 
+/**
+ * Get the state of a given model.
+ * The model state is returned asynchronously as a RecognitionEvent via
+ * the callback that was registered in StartRecognition().
+ * @param modelHandle The handle of the sound model whose state is being
+ *                    queried.
+ * @return retval Operation completion status: 0 in case of success,
+ *                -ENOSYS in case of invalid model handle,
+ *                -ENOMEM in case of memory allocation failure,
+ *                -ENODEV in case of initialization error,
+ *                -EINVAL in case where a recognition event is already
+ *                        being processed.
+ */
+static int stdev_get_model_state(const struct sound_trigger_hw_device *dev,
+                               sound_model_handle_t sound_model_handle) {
+    struct knowles_sound_trigger_device *stdev =
+        (struct knowles_sound_trigger_device *)dev;
+    struct model_info *model = &stdev->models[sound_model_handle];
+    int ret = 0;
+    ALOGD("+%s+", __func__);
+    pthread_mutex_lock(&stdev->lock);
+
+    if (!stdev->opened) {
+        ALOGE("%s: stdev isn't initialized", __func__);
+        ret = -ENODEV;
+        goto exit;
+    }
+
+    if (model->is_active == false) {
+        ALOGE("%s: ERROR: %d model is not active",
+            __func__, sound_model_handle);
+        ret = -ENOSYS;
+        goto exit;
+    }
+
+    if (model->is_state_query == true) {
+        ALOGE("%s: ERROR: model %d is already processing",
+            __func__, sound_model_handle);
+        ret = -EINVAL;
+        goto exit;
+    }
+
+    model->is_state_query = true;
+
+    if (check_uuid_equality(model->uuid, stdev->hotword_model_uuid))
+        ret = get_model_state(stdev->odsp_hdl, HOTWORD_INSTANCE_ID,
+                            HOTWORD_SLOT_ID);
+    else if (check_uuid_equality(model->uuid, stdev->ambient_model_uuid))
+        ret = get_model_state(stdev->odsp_hdl, AMBIENT_ENTITY_INSTANCE_ID,
+                            AMBIENT_SLOT_ID);
+    else if (check_uuid_equality(model->uuid, stdev->entity_model_uuid)) {
+        ret = get_model_state(stdev->odsp_hdl, AMBIENT_ENTITY_INSTANCE_ID,
+                            ENTITY_SLOT_ID);
+    } else {
+        ALOGE("%s: ERROR: %d model is not supported",
+            __func__, sound_model_handle);
+        ret = -ENOSYS;
+    }
+
+    if (ret != 0) {
+        model->is_state_query = false;
+        ALOGE("%s: ERROR: Failed to get the model state", __func__);
+    }
+
+exit:
+    pthread_mutex_unlock(&stdev->lock);
+    ALOGD("-%s-", __func__);
+    return ret;
+}
+
 static int stdev_close(hw_device_t *device)
 {
     struct knowles_sound_trigger_device *stdev =
@@ -1401,6 +1482,7 @@ static int stdev_open(const hw_module_t *module, const char *name,
     stdev->device.unload_sound_model = stdev_unload_sound_model;
     stdev->device.start_recognition = stdev_start_recognition;
     stdev->device.stop_recognition = stdev_stop_recognition;
+    stdev->device.get_model_state = stdev_get_model_state;
 
     stdev->opened = true;
     /* Initialize all member variable */
@@ -1411,6 +1493,7 @@ static int stdev_open(const hw_module_t *module, const char *name,
         stdev->models[i].is_loaded = false;
         stdev->models[i].is_active = false;
         stdev->last_keyword_detected_config = NULL;
+        stdev->models[i].is_state_query = false;
     }
 
     stdev->is_mic_route_enabled = false;

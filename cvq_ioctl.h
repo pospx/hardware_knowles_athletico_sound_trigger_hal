@@ -77,9 +77,10 @@
 #define AMBIENT_SLOT_ID     3
 #define ENTITY_SLOT_ID      5
 
-#define HOTWORD_UNLOAD_PARAM_ID             1
-#define AMBIENT_ENTITY_UNLOAD_PARAM_ID      1
-#define AMBIENT_ENTITY_RESET_PARAM_ID       2
+#define HOTWORD_UNLOAD_PARAM_ID                 1
+#define AMBIENT_ENTITY_UNLOAD_PARAM_ID          1
+#define AMBIENT_ENTITY_RESET_PARAM_ID           2
+#define AMBIENT_ENTITY_GET_MODEL_STATE_PARAM_ID 6
 
 #define HOTWORD_UNLOAD_PARAM_VAL            1
 #define AMBIENT_UNLOAD_PARAM_VAL            3
@@ -110,6 +111,8 @@
 int force_set_sensor_route(bool enable);
 int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
                 int length, int kw_type);
+int get_model_state(struct iaxxx_odsp_hw *odsp_hdl, const uint32_t inst_id,
+                    const uint32_t param_val);
 int get_event(struct iaxxx_odsp_hw *odsp_hdl,
             struct iaxxx_get_event_info *ge);
 int setup_chip(struct iaxxx_odsp_hw *odsp_hdl);
