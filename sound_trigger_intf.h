@@ -37,7 +37,7 @@
 #define ST_EVENT_CONFIG_MAX_STR_VALUE 32
 
 #define AUDIO_HAL_NAME_PREFIX "audio.primary"
-#define SOUND_TRIGGER_PLATFORM "sm8150"
+#define SOUND_TRIGGER_PLATFORM "msmnile"
 
 #ifdef __LP64__
     #define AUDIO_HAL_LIBRARY_PATH "/vendor/lib64/hw"
