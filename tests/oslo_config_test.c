@@ -247,6 +247,7 @@ typedef enum oslo_sensor_param_id_e
     OSLO_SENSOR_PARAM_MODE_1_SWITCH_COUNT = 0,
     OSLO_SENSOR_PARAM_MODE_2_SWITCH_COUNT,
     OSLO_SENSOR_PARAM_MODE,
+    OSLO_SENSOR_PARAM_SLPY_STATE,
 
     /* Force enums to be of size int */
     OSLO_SENSOR_PARAM_ID_FORCE_SIZE = INT_MAX,
@@ -256,6 +257,7 @@ typedef enum oslo_sensor_param_id_e
 static const oslo_settings_t oslo_plugin_settings[] =
 {
     {OSLO_SENSOR_PARAM_MODE,                                "plugin_mode"},
+    {OSLO_SENSOR_PARAM_SLPY_STATE,                          "plugin_slpy_state"},
 };
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 #define OSLO_DRIVER_SETTINGS_SIZE COUNT_OF(oslo_driver_settings)
