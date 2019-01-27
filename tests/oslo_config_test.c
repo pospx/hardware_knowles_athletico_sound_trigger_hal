@@ -820,7 +820,7 @@ int main(int argc, char *argv[]) {
         } else if ('p' == use_case) {
             ping_test(smd, ping_timeout_sec);
         } else if ('r' == use_case) {
-            oslo_enable(smd, route_enable);
+            route_enable ? osloSoundModelEnable(true) : oslo_enable(smd, false);
         } else if ('d' == use_case) {
             read_register(smd, reg_addr);
         } else if ('w' == use_case) {
