@@ -54,6 +54,7 @@
 #define OK_GOOGLE_KW_ID             (0)
 #define AMBIENT_KW_ID               (1)
 #define ENTITY_KW_ID                (2)
+#define USELESS_KW_ID               (999)
 
 #define IAXXX_VQ_EVENT_STR          "IAXXX_VQ_EVENT"
 #define IAXXX_RECOVERY_EVENT_STR    "IAXXX_RECOVERY_EVENT"
@@ -862,7 +863,6 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
     ALOGV("%s: Loading keyword model handle(%d) type(%d)", __func__,
         *handle, sound_model->type);
     // This will need to be replaced with UUID once they are fixed
-    stdev->models[i].kw_id = (i + 1);
     stdev->models[i].model_handle = *handle;
     stdev->models[i].type = sound_model->type;
     stdev->models[i].uuid = sound_model->vendor_uuid;
@@ -915,12 +915,14 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
                                 stdev->sensor_model_uuid)) {
         // setup the sensor route
         set_sensor_route(stdev->route_hdl, true);
+        stdev->models[i].kw_id = USELESS_KW_ID;
     } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->chre_model_uuid)) {
         // setup the CHRE route and Mic route.
         stdev->models[i].is_active = true;
         handle_input_source(stdev, true);
         set_chre_audio_route(stdev->route_hdl, stdev->is_music_playing);
+        stdev->models[i].kw_id = USELESS_KW_ID;
     } else {
         ALOGE("%s: ERROR: unknown keyword model file", __func__);
         err = -1;
