@@ -168,4 +168,37 @@ LOCAL_SHARED_LIBRARIES := liblog \
 			libodsp
 
 include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+
+LOCAL_PRELINK_MODULE := false
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE := dump_debug_info
+LOCAL_SRC_FILES := tests/dump_debug_info.c
+LOCAL_32_BIT_ONLY := true
+LOCAL_SHARED_LIBRARIES := liblog
+
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+
+LOCAL_PRELINK_MODULE := false
+LOCAL_MODULE := crash_event_logger
+LOCAL_SRC_FILES := tests/crash_event_logger.c
+LOCAL_32_BIT_ONLY := true
+LOCAL_SHARED_LIBRARIES := liblog libcutils
+
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+LOCAL_PRELINK_MODULE := false
+LOCAL_VENDOR_MODULE := true
+LOCAL_MODULE := setparamblk_test
+LOCAL_SRC_FILES := tests/setparamblk_test.c
+LOCAL_32_BIT_ONLY := true
+LOCAL_SHARED_LIBRARIES := libcutils \
+			libodsp
+
+include $(BUILD_EXECUTABLE)
+
 endif

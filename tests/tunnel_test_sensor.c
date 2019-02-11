@@ -21,6 +21,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #define LOG_TAG "ia_tunneling_sensor_test"
 
