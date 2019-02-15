@@ -17,12 +17,12 @@
 #define LOG_TAG "ia_tunneling_hal"
 #define LOG_NDEBUG 0
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include <cutils/log.h>
 #include "iaxxx-tunnel-intf.h"
@@ -34,10 +34,10 @@
 #define FUNCTION_EXIT_LOG ALOGV("Exiting %s", __func__);
 
 struct ia_tunneling_hal {
-    FILE *tunnel_dev;
+    int tunnel_dev;
 };
 
-struct ia_tunneling_hal* ia_start_tunneling(int buffering_size)
+struct ia_tunneling_hal* ia_start_tunneling(int buffering_size __unused)
 {
     struct ia_tunneling_hal *thdl;
 
@@ -50,16 +50,13 @@ struct ia_tunneling_hal* ia_start_tunneling(int buffering_size)
         return NULL;
     }
 
-    thdl->tunnel_dev = fopen(TUNNELING_DEVICE, "r");
-    if (thdl->tunnel_dev == NULL) {
+    thdl->tunnel_dev = open(TUNNELING_DEVICE, O_RDONLY);
+    if (-1 == thdl->tunnel_dev) {
         ALOGE("%s: ERROR Failed to open the tunneling device - %s",
             __func__, strerror(errno));
         free(thdl);
         return NULL;
     }
-
-    if (buffering_size)
-        setvbuf(thdl->tunnel_dev, NULL, _IONBF, 0);
 
     return thdl;
 }
@@ -69,8 +66,8 @@ int ia_stop_tunneling(struct ia_tunneling_hal *thdl)
     FUNCTION_ENTRY_LOG;
 
     if (thdl->tunnel_dev) {
-        fclose(thdl->tunnel_dev);
-        thdl->tunnel_dev = NULL;
+        close(thdl->tunnel_dev);
+        thdl->tunnel_dev = 0;
     }
 
     free(thdl);
@@ -87,7 +84,7 @@ int ia_enable_tunneling_source(struct ia_tunneling_hal *thdl,
     struct tunlMsg tm;
     int err = 0;
 
-    if (thdl->tunnel_dev == NULL) {
+    if (-1 == thdl->tunnel_dev) {
         ALOGE("%s: ERROR Tunneling device is not opened", __func__);
         err = -EIO;
         goto exit;
@@ -96,7 +93,7 @@ int ia_enable_tunneling_source(struct ia_tunneling_hal *thdl,
     tm.tunlSrc = src_id;
     tm.tunlMode = tnl_mode;
     tm.tunlEncode = tnl_encode;
-    err = ioctl(fileno(thdl->tunnel_dev), TUNNEL_SETUP, &tm);
+    err = ioctl(thdl->tunnel_dev, TUNNEL_SETUP, &tm);
     if (err == -1) {
         ALOGE("%s: ERROR Tunnel setup failed %s", __func__, strerror(errno));
     }
@@ -114,7 +111,7 @@ int ia_disable_tunneling_source(struct ia_tunneling_hal *thdl,
     struct tunlMsg tm;
     int err = 0;
 
-    if (thdl->tunnel_dev == NULL) {
+    if (-1 == thdl->tunnel_dev) {
         ALOGE("%s: ERROR Tunneling devices is not opened", __func__);
         err = -EIO;
         goto exit;
@@ -123,7 +120,7 @@ int ia_disable_tunneling_source(struct ia_tunneling_hal *thdl,
     tm.tunlSrc = src_id;
     tm.tunlMode = tunl_mode;
     tm.tunlEncode = tunl_encode;
-    err = ioctl(fileno(thdl->tunnel_dev), TUNNEL_TERMINATE, &tm);
+    err = ioctl(thdl->tunnel_dev, TUNNEL_TERMINATE, &tm);
     if (err == -1) {
         ALOGE("%s: ERROR Tunnel terminate failed %s",
             __func__, strerror(errno));
@@ -145,7 +142,7 @@ int ia_read_tunnel_data(struct ia_tunneling_hal *thdl,
         return -EINVAL;
     }
 
-    read_bytes = fread(buf, 1, buf_sz, thdl->tunnel_dev);
+    read_bytes = read(thdl->tunnel_dev, buf, buf_sz);
     if (read_bytes == 0) {
         ALOGE("%s: Warning zero bytes read from tunneling device, "
             "trying again..", __func__);
