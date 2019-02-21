@@ -1716,7 +1716,42 @@ int iaxxx_odsp_get_device_id(struct iaxxx_odsp_hw *odsp_hw_hdl,
     }
 
     err = ioctl(fileno(odsp_hw_hdl->dev_node),
-                ODSP_GET_SYS_DEVICE_ID, (unsigned long)device_id);
+                    ODSP_GET_SYS_DEVICE_ID, (unsigned long)device_id);
+    if (err < 0) {
+        ALOGE("%s: ERROR: Failed with error %s", __func__, strerror(errno));
+    }
+
+func_exit:
+    FUNCTION_EXIT_LOG;
+    return err;
+}
+
+/**
+ * Returns System mode
+ *
+ * Input  - odsp_hw_hdl     - Handle to odsp hw structure
+ *          mode            - Returned system mode
+ *              0: System is in reset mode.
+ *              1: System is currently in bootloader mode.
+ *              2: System has entered application mode.
+ *
+ * Output - 0 on success, on failure < 0
+ */
+int iaxxx_odsp_get_sys_mode(struct iaxxx_odsp_hw *odsp_hw_hdl,
+                            uint32_t *mode)
+{
+    int err = 0;
+
+    FUNCTION_ENTRY_LOG;
+
+    if (odsp_hw_hdl == NULL) {
+        ALOGE("%s: ERROR: Invalid handle to iaxxx_odsp_hw", __func__);
+        err = -1;
+        goto func_exit;
+    }
+
+    err = ioctl(fileno(odsp_hw_hdl->dev_node),
+                    ODSP_GET_SYS_MODE, (unsigned long)mode);
     if (err < 0) {
         ALOGE("%s: ERROR: Failed with error %s", __func__, strerror(errno));
     }

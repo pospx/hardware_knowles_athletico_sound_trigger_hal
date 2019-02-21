@@ -815,7 +815,7 @@ int setup_chre_package(struct iaxxx_odsp_hw *odsp_hdl)
 
     /* Create CHRE plugins */
     cdata.type = CONFIG_FILE;
-    cdata.data.fdata.filename = BUFFER_CONFIG_VAL;
+    cdata.data.fdata.filename = BUFFER_CONFIG_VAL_2_SEC;
     err = iaxxx_odsp_plugin_set_creation_config(odsp_hdl,
                                                 CHRE_INSTANCE_ID,
                                                 IAXXX_HMD_BLOCK_ID,
@@ -1112,15 +1112,26 @@ exit:
     return err;
 }
 
-int setup_mic_buffer(struct iaxxx_odsp_hw *odsp_hdl)
+int setup_mic_buffer(struct iaxxx_odsp_hw *odsp_hdl, enum buffer_configuration bc)
 {
     struct iaxxx_create_config_data cdata;
     int err = 0;
 
     ALOGD("+%s+", __func__);
 
+    if (bc == NOT_CONFIGURED) {
+        err = -EINVAL;
+        ALOGE("%s: ERROR Invalid buffer configuration sent", __func__);
+        goto exit;
+    }
+
     cdata.type = CONFIG_FILE;
-    cdata.data.fdata.filename = BUFFER_CONFIG_AMBIENT_VAL;
+    if (bc == MULTI_SECOND) {
+        cdata.data.fdata.filename = BUFFER_CONFIG_VAL_MULTI_SEC;
+    } else if (bc == TWO_SECOND) {
+        cdata.data.fdata.filename = BUFFER_CONFIG_VAL_2_SEC;
+    }
+
     err = iaxxx_odsp_plugin_set_creation_config(odsp_hdl,
                                                 BUF_INSTANCE_ID,
                                                 IAXXX_HMD_BLOCK_ID,

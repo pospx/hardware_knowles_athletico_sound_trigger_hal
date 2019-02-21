@@ -150,6 +150,8 @@ struct knowles_sound_trigger_device {
 
     unsigned int current_enable;
 
+    enum buffer_configuration bc;
+
     struct audio_route *route_hdl;
     struct iaxxx_odsp_hw *odsp_hdl;
 
@@ -247,9 +249,10 @@ static bool is_any_model_active(struct knowles_sound_trigger_device *stdev) {
             break;
         }
     }
-    if (i == MAX_MODELS) {
+
+    if (i == MAX_MODELS)
         return false;
-    } else
+    else
         return true;
 }
 
@@ -260,9 +263,10 @@ static bool is_any_model_loaded(struct knowles_sound_trigger_device *stdev) {
             break;
         }
     }
-    if (i == MAX_MODELS) {
+
+    if (i == MAX_MODELS)
         return false;
-    } else
+    else
         return true;
 }
 
@@ -427,6 +431,45 @@ static int switch_internal_osc(struct knowles_sound_trigger_device *stdev)
     return err;
 }
 
+static int configure_buffer_plugin(struct knowles_sound_trigger_device *stdev,
+                                   enum buffer_configuration req_config) {
+    int err = 0;
+
+    ALOGD("+%s+", __func__);
+
+    // We are already in required configuration return;
+    if (stdev->bc == req_config || req_config == NOT_CONFIGURED)
+        return 0;
+
+    // Tear down the current buffer configuration if present
+    if (stdev->bc != NOT_CONFIGURED) {
+        tear_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
+
+        err = destroy_mic_buffer(stdev->odsp_hdl);
+        if (err != 0) {
+            ALOGE("Failed to destroy the buffer plugin");
+            goto exit;
+        }
+    }
+
+    // Setup the required buffer configuration
+    err = setup_mic_buffer(stdev->odsp_hdl, req_config);
+    if (err != 0) {
+        ALOGE("Failed to create the buffer plugin");
+        goto exit;
+    }
+
+    // set route with new configuration
+    if (stdev->bc != NOT_CONFIGURED)
+        set_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
+
+    stdev->bc = req_config;
+
+exit:
+    ALOGD("-%s-", __func__);
+    return err;
+}
+
 static int setup_package(struct knowles_sound_trigger_device *stdev,
                         struct model_info *model)
 {
@@ -519,6 +562,42 @@ static int setup_package(struct knowles_sound_trigger_device *stdev,
     }
 
 exit:
+    return err;
+}
+
+static int setup_buffer(struct knowles_sound_trigger_device *stdev,
+                        struct model_info *model,
+                        bool enabled)
+{
+    int err = 0;
+    if (enabled) {
+        if (check_uuid_equality(model->uuid, stdev->hotword_model_uuid)) {
+            if (stdev->bc == NOT_CONFIGURED) {
+                configure_buffer_plugin(stdev, TWO_SECOND);
+            }
+        } else if (check_uuid_equality(model->uuid, stdev->ambient_model_uuid)) {
+            if (stdev->bc == NOT_CONFIGURED || stdev->bc == TWO_SECOND) {
+                configure_buffer_plugin(stdev, MULTI_SECOND);
+            }
+        } else if (check_uuid_equality(model->uuid, stdev->entity_model_uuid)) {
+            if (stdev->bc == NOT_CONFIGURED || stdev->bc == TWO_SECOND) {
+                configure_buffer_plugin(stdev, MULTI_SECOND);
+            }
+        }
+    } else {
+        if (!(stdev->current_enable & ENTITY_MASK) &&
+            !(stdev->current_enable & AMBIENT_MASK) &&
+            stdev->current_enable & HOTWORD_MASK) {
+            // We need to switch to the 2 second buffer if only hotword is enabled
+            configure_buffer_plugin(stdev, TWO_SECOND);
+        } else if (!(stdev->current_enable & HOTWORD_MASK ||
+            stdev->current_enable & AMBIENT_MASK ||
+            stdev->current_enable & ENTITY_MASK)) {
+            destroy_mic_buffer(stdev->odsp_hdl);
+            stdev->bc = NOT_CONFIGURED;
+        }
+    }
+
     return err;
 }
 
@@ -679,19 +758,6 @@ static int handle_input_source(struct knowles_sound_trigger_device *stdev,
                 stdev->is_mic_route_enabled = false;
                 goto exit;
             }
-            if (stdev->is_buffer_package_loaded == true) {
-                err = setup_mic_buffer(stdev->odsp_hdl);
-                if (err != 0) {
-                    ALOGE("%s: Failed to load Buffer package", __func__);
-                    goto exit;
-                }
-                err = set_buffer_route(stdev->route_hdl,
-                                    stdev->is_bargein_route_enabled);
-                if (err != 0) {
-                    ALOGE("%s: Failed to enable buffer route", __func__);
-                    goto exit;
-                }
-            }
         }
         if (stdev->is_music_playing == true &&
             stdev->is_bargein_route_enabled == false) {
@@ -710,37 +776,10 @@ static int handle_input_source(struct knowles_sound_trigger_device *stdev,
                 stdev->is_bargein_route_enabled = false;
                 goto exit;
             }
-            //Switch buffer input source
-            err = tear_buffer_route(stdev->route_hdl,
-                                !stdev->is_bargein_route_enabled);
-            if (err != 0) {
-                ALOGE("Failed to tear old buffer route");
-                goto exit;
-            }
-
-            err = set_buffer_route(stdev->route_hdl,
-                                stdev->is_bargein_route_enabled);
-            if (err != 0) {
-                ALOGE("Failed to enable buffer route");
-                goto exit;
-            }
         }
     } else {
         if (!is_any_model_active(stdev)) {
             ALOGD("None of keywords are active");
-            if (stdev->is_buffer_package_loaded == true) {
-                err = tear_buffer_route(stdev->route_hdl,
-                                       stdev->is_bargein_route_enabled);
-                if (err != 0) {
-                    ALOGE("%s: Failed to enable buffer route", __func__);
-                    goto exit;
-                }
-                err = destroy_mic_buffer(stdev->odsp_hdl);
-                if (err != 0) {
-                    ALOGE("%s: Failed to load Buffer package", __func__);
-                    goto exit;
-                }
-            }
             if (stdev->is_music_playing == true &&
                 stdev->is_bargein_route_enabled == true) {
                 // Just disable the route and update the route status but retain
@@ -816,17 +855,6 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
         if (err != 0) {
             ALOGE("failed to restart mic route");
         }
-        if (stdev->is_buffer_package_loaded == true) {
-            err = setup_mic_buffer(stdev->odsp_hdl);
-            if (err != 0) {
-                ALOGE("%s: Failed to load Buffer package", __func__);
-                goto exit;
-            }
-            err = set_buffer_route(stdev->route_hdl, false);
-            if (err != 0) {
-                ALOGE("%s: Failed to restart buffer route", __func__);
-            }
-        }
     }
 
     if (stdev->is_music_playing == true &&
@@ -839,19 +867,6 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
                                 stdev->is_bargein_route_enabled);
         if (err != 0) {
             ALOGE("Failed to restart bargein route");
-        }
-        if (stdev->is_buffer_package_loaded == true) {
-            //Switch buffer input source
-            err = tear_buffer_route(stdev->route_hdl,
-                                !stdev->is_bargein_route_enabled);
-            if (err != 0) {
-                ALOGE("Failed to tear old buffer route");
-            }
-            err = set_buffer_route(stdev->route_hdl,
-                                stdev->is_bargein_route_enabled);
-            if (err != 0) {
-                ALOGE("Failed to enable buffer route");
-            }
         }
     }
 
@@ -881,6 +896,16 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
             set_package_route(stdev, stdev->models[i].uuid,
                             stdev->is_bargein_route_enabled);
         }
+    }
+
+    if (stdev->bc != NOT_CONFIGURED) {
+        // Setup the required buffer configuration
+        err = setup_mic_buffer(stdev->odsp_hdl, stdev->bc);
+        if (err != 0) {
+            ALOGE("Failed to create the buffer plugin");
+            goto exit;
+        }
+        set_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
     }
 
 exit:
@@ -1143,6 +1168,49 @@ static int stdev_get_properties(
     return 0;
 }
 
+static int stop_recognition(struct knowles_sound_trigger_device *stdev,
+                            sound_model_handle_t handle)
+{
+    int status = 0;
+    struct model_info *model = &stdev->models[handle];
+
+    if (stdev->is_st_hal_ready == false) {
+        ALOGE("%s: ST HAL is not ready yet", __func__);
+        status = -EAGAIN;
+        goto exit;
+    }
+
+    if (model->config != NULL) {
+        dereg_hal_event_session(model->config, handle);
+        free(model->config);
+        model->config = NULL;
+    }
+
+    model->recognition_callback = NULL;
+    model->recognition_cookie = NULL;
+    if (check_uuid_equality(model->uuid, stdev->chre_model_uuid) ||
+        check_uuid_equality(model->uuid, stdev->sensor_model_uuid)) {
+        // This avoids any processing of chre/oslo.
+        goto exit;
+    }
+    model->is_active = false;
+
+    tear_package_route(stdev, model->uuid, stdev->is_music_playing);
+
+    destroy_package(stdev, model);
+
+    if (!(stdev->current_enable & HOTWORD_MASK &&
+        stdev->current_enable & AMBIENT_MASK &&
+        stdev->current_enable & ENTITY_MASK)) {
+        tear_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
+    }
+
+    handle_input_source(stdev, false);
+
+exit:
+    return status;
+}
+
 static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
                                 struct sound_trigger_sound_model *sound_model,
                                 sound_model_callback_t callback,
@@ -1218,14 +1286,20 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
         ret = setup_buffer_package(stdev->odsp_hdl);
         if (ret != 0) {
             ALOGE("%s: ERROR: Failed to load the buffer package", __func__);
-            if (stdev->models[i].data) {
-                free(stdev->models[i].data);
-                stdev->models[i].data = NULL;
-                stdev->models[i].data_sz = 0;
-            }
             goto exit;
         }
         stdev->is_buffer_package_loaded = true;
+    }
+
+    // Setup and Configure the buffer plugin
+    // If we are NOT_CONFIGURED state then we need a 2 second configuration
+    // If we are in MULTI_SECOND state then no need to do anything
+    if (stdev->is_buffer_package_loaded == true) {
+        ret = setup_buffer(stdev, &stdev->models[i], true);
+        if (ret != 0) {
+            ALOGE("%s: ERROR: Failed to setup buffer", __func__);
+            goto exit;
+        }
     }
 
     // Send the keyword model to the chip only for hotword and ambient audio
@@ -1278,6 +1352,10 @@ exit:
             stdev->models[i].data = NULL;
             stdev->models[i].data_sz = 0;
         }
+        if (!is_any_model_loaded(stdev) && stdev->is_buffer_package_loaded) {
+            destroy_buffer_package(stdev->odsp_hdl);
+            stdev->is_buffer_package_loaded = false;
+        }
     }
     pthread_mutex_unlock(&stdev->lock);
     ALOGD("-%s handle %d-", __func__, *handle);
@@ -1306,6 +1384,14 @@ static int stdev_unload_sound_model(const struct sound_trigger_hw_device *dev,
         ret = -EINVAL;
         goto exit;
     }
+
+    if (stdev->models[handle].is_active == true) {
+        ret = stop_recognition(stdev, handle);
+        if (ret)
+            goto exit;
+    }
+
+
     if (check_uuid_equality(stdev->models[handle].uuid,
                                 stdev->sensor_model_uuid)) {
         // Disable the sensor route
@@ -1342,6 +1428,8 @@ static int stdev_unload_sound_model(const struct sound_trigger_hw_device *dev,
         stdev->models[handle].data = NULL;
         stdev->models[handle].data_sz = 0;
     }
+
+    setup_buffer(stdev, &stdev->models[handle], false);
 
     if (!is_any_model_loaded(stdev) && stdev->is_buffer_package_loaded) {
         destroy_buffer_package(stdev->odsp_hdl);
@@ -1425,6 +1513,12 @@ static int stdev_start_recognition(
 
     handle_input_source(stdev, true);
 
+    if (!(stdev->current_enable & HOTWORD_MASK &&
+        stdev->current_enable & AMBIENT_MASK &&
+        stdev->current_enable & ENTITY_MASK)) {
+        set_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
+    }
+
     setup_package(stdev, model);
 
     set_package_route(stdev, model->uuid, stdev->is_music_playing);
@@ -1442,40 +1536,18 @@ static int stdev_stop_recognition(
     struct knowles_sound_trigger_device *stdev =
         (struct knowles_sound_trigger_device *)dev;
     int status = 0;
-    struct model_info *model = &stdev->models[handle];
-    ALOGD("+%s sound model %d+", __func__, handle);
     pthread_mutex_lock(&stdev->lock);
+    ALOGD("+%s sound model %d+", __func__, handle);
 
-    if (stdev->is_st_hal_ready == false) {
-        ALOGE("%s: ST HAL is not ready yet", __func__);
-        status = -EAGAIN;
+    status = stop_recognition(stdev, handle);
+
+    if (status != 0)
         goto exit;
-    }
 
-    if (model->config != NULL) {
-        dereg_hal_event_session(model->config, handle);
-        free(model->config);
-        model->config = NULL;
-    }
-
-    model->recognition_callback = NULL;
-    model->recognition_cookie = NULL;
-    if (check_uuid_equality(model->uuid, stdev->chre_model_uuid) ||
-        check_uuid_equality(model->uuid, stdev->sensor_model_uuid)) {
-        // This avoids any processing of chre/oslo.
-        goto exit;
-    }
-    model->is_active = false;
-
-    tear_package_route(stdev, model->uuid, stdev->is_music_playing);
-
-    destroy_package(stdev, model);
-
-    handle_input_source(stdev, false);
-
+    ALOGD("-%s sound model %d-", __func__, handle);
 exit:
     pthread_mutex_unlock(&stdev->lock);
-    ALOGD("-%s sound model %d-", __func__, handle);
+
     return status;
 }
 
@@ -1881,6 +1953,7 @@ static int stdev_open(const hw_module_t *module, const char *name,
     stdev->is_internal_osc_switched = false;
     stdev->is_buffer_package_loaded = false;
     stdev->current_enable = 0;
+    stdev->bc = NOT_CONFIGURED;
 
     str_to_uuid(HOTWORD_AUDIO_MODEL, &stdev->hotword_model_uuid);
     str_to_uuid(SENSOR_MANAGER_MODEL, &stdev->sensor_model_uuid);

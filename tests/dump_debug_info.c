@@ -64,6 +64,9 @@ void usage(void)
     4) dump_debug_info -l <module id>\n\
     5) dump_debug_info -m <processor id> <mode>\n\
     6) dump_debug_info -m <processor id>\n\
+    7) dump_debug_info -t <tunnel id>\n\
+    8) dump_debug_info -n <channel id>\n\
+    9) dump_debug_info -s <stream id>\n\
     \n\
     In the first form, it dumps the circular buffer logging for Rome, the output is\n\
     dumped to the file /data/data/circular_buf_(cm4/dmx/hmd).bin\n\
@@ -73,6 +76,9 @@ void usage(void)
     In the fourth form, it gets the log level for the requested modele id\n\
     In the fifth form, it sets the mode to a particular processor id\n\
     In the sixth form, it gets the mode for the requested processor id\n\
+    In the seventh form, it gets the tunnel information for the requested tunnel id [0, 31]\n\
+    In the eighth form, it gets the channel information for the requested channel id [0, 31]\n\
+    In the ninth form, it gets the stream information for the requested stream id [0, 15]\n\
     ", stdout);
 
     fputs("\
@@ -83,6 +89,9 @@ void usage(void)
     -o      Dump to stdout (Works only with -r option)\n\
     -l      Set/Get the log level for a particular module\n\
     -m      Set/Get the mode for a particular processor id\n\
+    -t      Dump the tunnel information for a particular tunnel id [0, 31]\n\
+    -n      Dump the channel information for a particular channel id [0, 31]\n\
+    -s      Dump the stream information for a particular stream id [0, 15]\n\
 \n\
     Module ids -\n\
     -----------\n\
@@ -381,15 +390,151 @@ void dump_circ_buf(const struct iaxxx_circ_buffer_info *circ_buffer_info)
     }
 }
 
+static int dump_tunnel(int fd, int tunnel_id)
+{
+    int ret;
+    struct iaxxx_tunnel_info_dump dump = {
+        .id = tunnel_id
+    };
+
+    if ((ret = ioctl(fd, IAXXX_IOCTL_GET_TUNNEL_INFO_DUMP, &dump)) != 0) {
+        ALOGE("Failed to ioctl %s IAXXX_IOCTL_GET_TUNNEL_INFO_DUMP, ret=%d", DEBUG_DEV, ret);
+        ret = errno;
+        return ret;
+    }
+
+    fprintf(stdout, "header.en=0x%08x\n"
+                    "header.st=0x%08x\n"
+                    "header.out_buf_size=%u\n"
+                    "header.out_buf_addr=0x%08x\n"
+                    "header.out_buf_head=%u\n"
+                    "header.out_buf_tail=%u\n"
+                    "header.out_buf_threshold=%u\n"
+                    "tunnel%u.nframe_drops=%u\n"
+                    "tunnel%u.nsent_to_host=%u\n"
+                    "tunnel%u.nsent=%u\n"
+                    "tunnel%u.nrecvd=%u\n"
+                    "tunnel%u.ctrl=%u\n"
+                    "tunnel%u.format=%u\n",
+                    dump.en,
+                    dump.st,
+                    dump.out_buf_size,
+                    dump.out_buf_addr,
+                    dump.out_buf_head,
+                    dump.out_buf_tail,
+                    dump.out_buf_threshold,
+                    dump.id, dump.nframe_drops,
+                    dump.id, dump.nsent_to_host,
+                    dump.id, dump.nsent,
+                    dump.id, dump.nrecvd,
+                    dump.id, dump.ctrl,
+                    dump.id, dump.format);
+
+    return ret;
+}
+
+static int dump_channel(int fd, int channel_id)
+{
+    int ret;
+    struct iaxxx_channel_info_dump dump = {
+        .id = channel_id
+    };
+
+    if ((ret = ioctl(fd, IAXXX_IOCTL_GET_CHANNEL_INFO_DUMP, &dump)) != 0) {
+        ALOGE("Failed to ioctl %s IAXXX_IOCTL_GET_CHANNEL_INFO_DUMP, ret=%d", DEBUG_DEV, ret);
+        ret = errno;
+        return ret;
+    }
+
+    fprintf(stdout, "header.st=0x%08x\n"
+                    "header.direction=%u\n"
+                    "header.gain=%u\n"
+                    "channel%u.nsent=%u\n"
+                    "channel%u.nrecvd=%u\n"
+                    "channel%u.endpoint_state=%u\n"
+                    "channel%u.intr_cnt=%u\n"
+                    "channel%u.drop_cnt=%u\n"
+                    "channel%u.gain_ctrl=%u\n"
+                    "channel%u.gain_status=%u\n"
+                    "channel%u.""%s""=%u\n",
+                    dump.st,
+                    dump.direction,
+                    dump.gain,
+                    dump.id, dump.nsent,
+                    dump.id, dump.nrecvd,
+                    dump.id, dump.endpoint_state,
+                    dump.id, dump.intr_cnt,
+                    dump.id, dump.drop_cnt,
+                    dump.id, dump.gain_ctrl,
+                    dump.id, dump.gain_status,
+                    dump.id, (dump.id >= 0 && dump.id < 16)
+                                ? "out_fmt" : "in_connect", dump.in_connect);
+
+    return ret;
+}
+
+static int dump_stream(int fd, int stream_id)
+{
+    int ret;
+    struct iaxxx_stream_info_dump dump = {
+        .id = stream_id
+    };
+
+    if ((ret = ioctl(fd, IAXXX_IOCTL_GET_STREAM_INFO_DUMP, &dump)) != 0) {
+        ALOGE("Failed to ioctl %s IAXXX_IOCTL_GET_STREAM_INFO_DUMP, ret=%d", DEBUG_DEV, ret);
+        ret = errno;
+        return ret;
+    }
+
+    fprintf(stdout, "header.en=0x%08x\n"
+                    "header.st=0x%08x\n"
+                    "stream%u.af_error_afs_fifo_overflow_cnt=%u\n"
+                    "stream%u.af_error_afs_fifo_underflow_cnt=%u\n"
+                    "stream%u.af_error_tus_fifo_overflow_cnt=%u\n"
+                    "stream%u.af_error_tus_fifo_underflow_cnt=%u\n"
+                    "stream%u.af_error_tus_fifo_coherency_cnt=%u\n"
+                    "stream%u.af_error_deadline_cnt=%u\n"
+                    "stream%u.af_error_phy_cnt=%u\n"
+                    "stream%u.af_error_timeout_cnt=%u\n"
+                    "stream%u.af_error_access_cnt=%u\n"
+                    "stream%u.ctrl=%u\n"
+                    "stream%u.status=%u\n"
+                    "stream%u.format=%u\n"
+                    "stream%u.port=%u\n"
+                    "stream%u.channel=%u\n"
+                    "stream%u.sync=%u\n",
+                    dump.en,
+                    dump.st,
+                    dump.id, dump.af_error_afs_fifo_overflow_cnt,
+                    dump.id, dump.af_error_afs_fifo_underflow_cnt,
+                    dump.id, dump.af_error_tus_fifo_overflow_cnt,
+                    dump.id, dump.af_error_tus_fifo_underflow_cnt,
+                    dump.id, dump.af_error_tus_fifo_coherency_cnt,
+                    dump.id, dump.af_error_deadline_cnt,
+                    dump.id, dump.af_error_phy_cnt,
+                    dump.id, dump.af_error_timeout_cnt,
+                    dump.id, dump.af_error_access_cnt,
+                    dump.id, dump.ctrl,
+                    dump.id, dump.status,
+                    dump.id, dump.format,
+                    dump.id, dump.port,
+                    dump.id, dump.channel,
+                    dump.id, dump.sync);
+
+    return ret;
+}
+
 int main(int argc, char *argv[])
 {
     int fd = 0, ret = 0;
     int c;
     bool dump_all_registers = false;
     bool dump_circ_buffer = false;
+    bool dump_tunnel_info = false;
+    bool dump_channel_info = false;
+    bool dump_stream_info = false;
     bool log_mode = false;
     bool use_stdout = false;
-    static struct iaxxx_registers_dump dump;
     bool proc_mode = false;
     // Log level set will require 2 arguments while get needs one
     const int log_lvl_req_arg_get = 1;
@@ -399,14 +544,14 @@ int main(int argc, char *argv[])
     const int mode_req_arg_set = 2;
     int module_id = 0, log_level = -1;
     int proc_id = 0, mode = -1;
+    int tunnel_id = -1, channel_id = -1, stream_id = -1;
 
     if (argc <= 1) {
         usage();
         return 0;
     }
 
-
-    while ((c = getopt_long (argc, argv, "rcol:m:", long_options, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "rcot:n:s:l:m:", long_options, NULL)) != -1) {
         switch (c) {
         case 'r':
             dump_all_registers = true;
@@ -416,6 +561,18 @@ int main(int argc, char *argv[])
             break;
         case 'o':
             use_stdout = true;
+            break;
+        case 't':
+            dump_tunnel_info = true;
+            tunnel_id = atoi(optarg);
+            break;
+        case 'n':
+            dump_channel_info = true;
+            channel_id = atoi(optarg);
+            break;
+        case 's':
+            dump_stream_info = true;
+            stream_id = atoi(optarg);
             break;
         case 'l':
             log_mode = true;
@@ -461,12 +618,10 @@ int main(int argc, char *argv[])
 
     fd = open(DEBUG_DEV, O_RDONLY);
     if (-1 == fd) {
-        ALOGE("Failed to open %s", DEBUG_DEV);
+        fprintf(stderr, "Failed to open %s", DEBUG_DEV);
         ret = errno;
         goto exit;
     }
-
-    memset(&dump, 0, sizeof(dump));
 
     if(log_mode == true) {
         log_lvl(fd, module_id, log_level);
@@ -476,17 +631,54 @@ int main(int argc, char *argv[])
         pmode(fd, proc_id, mode);
     }
 
-    if ((ret = ioctl(fd, IAXXX_IOCTL_GET_REGISTERS_DUMP, &dump)) != 0) {
-        ALOGE("Failed to ioctl %s IAXXX_IOCTL_GET_REGISTERS_DUMP, ret=%d", DEBUG_DEV, ret);
-        ret = errno;
-        goto exit;
+
+    if (dump_all_registers || dump_circ_buffer) {
+        static struct iaxxx_registers_dump dump;
+
+        if ((ret = ioctl(fd, IAXXX_IOCTL_GET_REGISTERS_DUMP, &dump)) != 0) {
+            fprintf(stderr, "Failed to ioctl %s IAXXX_IOCTL_GET_REGISTERS_DUMP, ret=%d", DEBUG_DEV, ret);
+            ret = errno;
+        } else {
+            if (dump_all_registers)
+                dump_all_regs(&dump, use_stdout);
+
+            if (dump_circ_buffer)
+                dump_circ_buf(&dump.circ_buffer_info);
+        }
     }
 
-    if (dump_all_registers)
-        dump_all_regs(&dump, use_stdout);
+    if (dump_tunnel_info) {
+        if (tunnel_id >= 0 && tunnel_id < IAXXX_TUNNEL_MAX) {
+            ret = dump_tunnel(fd, tunnel_id);
+            if (ret) {
+                fprintf(stderr, "Failed to dump_tunnel(), ret=%d", ret);
+            }
+        } else {
+            fprintf(stderr, "Invalid tunnel_id %d\n", tunnel_id);
+        }
+    }
 
-    if (dump_circ_buffer)
-        dump_circ_buf(&dump.circ_buffer_info);
+    if (dump_channel_info) {
+        if (channel_id >= 0 && channel_id < IAXXX_CHANNEL_MAX) {
+            ret = dump_channel(fd, channel_id);
+            if (ret) {
+                fprintf(stderr, "Failed to dump_channel(), ret=%d", ret);
+            }
+        } else {
+            fprintf(stderr, "Invalid channel_id %d\n", channel_id);
+        }
+    }
+
+    if (dump_stream_info) {
+        if (stream_id >= 0 && stream_id < IAXXX_STREAM_MAX) {
+            ret = dump_stream(fd, stream_id);
+            if (ret) {
+                fprintf(stderr, "Failed to dump_stream(), ret=%d", ret);
+            }
+        } else {
+            fprintf(stderr, "Invalid stream_id %d\n", stream_id);
+        }
+    }
 
 exit:
     if (-1 != fd)

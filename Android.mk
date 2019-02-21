@@ -98,7 +98,11 @@ LOCAL_SRC_FILES := tests/sensor_param_test.c
 LOCAL_32_BIT_ONLY := true
 LOCAL_SHARED_LIBRARIES := liblog \
 			libutils \
-			libcutils
+			libcutils \
+			libtinyalsa
+LOCAL_C_INCLUDES += external/tinyalsa/include \
+		      $(LOCAL_PATH)/../hal
+
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
@@ -201,4 +205,22 @@ LOCAL_SHARED_LIBRARIES := libcutils \
 
 include $(BUILD_EXECUTABLE)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE := plugin_status_test
+LOCAL_SRC_FILES := tests/plugin_status_test.c
+LOCAL_VENDOR_MODULE := true
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/
+LOCAL_32_BIT_ONLY := true
+LOCAL_SHARED_LIBRARIES := libcutils libodsp
+
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := get_pwr_stats
+LOCAL_SRC_FILES := tests/get_pwr_stats.c
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/
+LOCAL_32_BIT_ONLY := true
+LOCAL_SHARED_LIBRARIES := libcutils liblog
+
+include $(BUILD_EXECUTABLE)
 endif

@@ -93,9 +93,9 @@
 #define AMBIENT_GET_MODEL_STATE_PARAM_ID 7
 
 #define BUFFER_PACKAGE              "BufferPackage.bin"
-#define BUFFER_CONFIG_VAL           "BufferConfigVal.bin"
 #define BUFFER_CONFIG_OSLO_VAL      "BufferConfigValOslo.bin"
-#define BUFFER_CONFIG_AMBIENT_VAL   "BufferConfigValAmbient.bin"
+#define BUFFER_CONFIG_VAL_MULTI_SEC "BufferConfigVal.bin"
+#define BUFFER_CONFIG_VAL_2_SEC     "BufferConfigVal2Sec.bin"
 #define OK_GOOGLE_PACKAGE           "OkGooglePackage.bin"
 #define AMBIENT_EC_PACKAGE          "AmbientECPackage.bin"
 #define AMBIENT_DA_PACKAGE          "AmbientDAPackage.bin"
@@ -124,6 +124,12 @@ enum clock_type {
     EXTERNAL_OSCILLATOR
 };
 
+enum buffer_configuration {
+    TWO_SECOND,
+    MULTI_SECOND,    // Configuration of 8 + 2
+    NOT_CONFIGURED
+};
+
 #define PLUGIN_DEF_CONFIG_ID    0
 
 int write_model(struct iaxxx_odsp_hw *odsp_hdl, unsigned char *data,
@@ -148,7 +154,7 @@ int destroy_sensor_package(struct iaxxx_odsp_hw *odsp_hdl);
 int setup_mixer_package(struct iaxxx_odsp_hw *odsp_hdl);
 int destroy_mixer_package(struct iaxxx_odsp_hw *odsp_hdl);
 
-int setup_mic_buffer(struct iaxxx_odsp_hw *odsp_hdl);
+int setup_mic_buffer(struct iaxxx_odsp_hw *odsp_hdl, enum buffer_configuration bc);
 int destroy_mic_buffer(struct iaxxx_odsp_hw *odsp_hdl);
 int set_buffer_route(struct audio_route *route_hdl, bool bargein);
 int tear_buffer_route(struct audio_route *route_hdl, bool bargein);
