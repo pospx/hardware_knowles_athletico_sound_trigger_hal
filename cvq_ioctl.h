@@ -30,9 +30,11 @@
 #define OSLO_MASK  0x10
 
 #define HOTWORD_EVT_SRC_ID            IAXXX_SYSID_PLUGIN_INSTANCE_0
-#define OSLO_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_3
-#define CHRE_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_6
-#define AMBIENT_EVT_SRC_ID            IAXXX_SYSID_PLUGIN_INSTANCE_5
+#define AMBIENT_EVT_SRC_ID            IAXXX_SYSID_PLUGIN_INSTANCE_2
+#define CHRE_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_5
+// HOST1 Plugin instances start from 8 to 15
+// plugin 8 is assigned for Oslo buffer and 9 for Oslo plugin
+#define OSLO_EVT_SRC_ID               IAXXX_SYSID_PLUGIN_INSTANCE_9
 
 #define HOTWORD_PKG_ID      11
 #define HOTWORD_PLUGIN_IDX  0
@@ -41,27 +43,27 @@
 
 #define AMBIENT_PKG_ID          12
 #define AMBIENT_PLUGIN_IDX      0
-#define AMBIENT_INSTANCE_ID     5
+#define AMBIENT_INSTANCE_ID     2
 #define AMBIENT_PRIORITY        1
 
 #define SENSOR_PKG_ID           0
 #define SENSOR_PLUGIN_IDX       0
-#define SENSOR_INSTANCE_ID      3
+#define SENSOR_INSTANCE_ID      9
 #define SENSOR_PRIORITY         1
 #define SENSOR_PRESENCE_MODE    0
 #define SENSOR_DETECTED_MODE    1
 #define SENSOR_MAX_MODE         2
 #define OSLO_CONFIGURED         (0x201)
 #define OSLO_DESTROYED          (0x202)
-#define OSLO_BUF_INSTANCE_ID    2
+#define OSLO_BUF_INSTANCE_ID    8
 
 #define AEC_PKG_ID       7
 #define AEC_PLUGIN_IDX   0
-#define AEC_INSTANCE_ID  7
+#define AEC_INSTANCE_ID  4
 #define AEC_PRIORITY     1
 
 #define CHRE_PLUGIN_IDX      0
-#define CHRE_INSTANCE_ID     6
+#define CHRE_INSTANCE_ID     5
 #define CHRE_EVT_ID          3
 #define CHRE_EVT_PARAM_ID    8
 #define CHRE_BUF_SIZE        60480
@@ -71,7 +73,7 @@
 
 #define MIXER_PKG_ID       5
 #define MIXER_PLUGIN_IDX   0
-#define MIXER_INSTANCE_ID  10
+#define MIXER_INSTANCE_ID  7
 #define MIXER_PRIORITY     1
 
 #define BUF_PKG_ID          4
