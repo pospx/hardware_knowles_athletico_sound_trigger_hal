@@ -187,6 +187,7 @@ include $(BUILD_EXECUTABLE)
 include $(CLEAR_VARS)
 
 LOCAL_PRELINK_MODULE := false
+LOCAL_VENDOR_MODULE := true
 LOCAL_MODULE := crash_event_logger
 LOCAL_SRC_FILES := tests/crash_event_logger.c
 LOCAL_32_BIT_ONLY := true

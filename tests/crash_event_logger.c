@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #define LOG_TAG "ia_crash_event_logger"
 #include <cutils/log.h>
