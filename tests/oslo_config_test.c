@@ -62,6 +62,7 @@
 #define CAL_MODES_MAX 10
 #define CAL_INVALID_MODE -1
 #define CAL_MODE_IS_VALID(x) (x >= 0 && x < CAL_MODES_MAX)
+#define CAL_VERSION_DEFAULT 1.0f
 
 /* copy of SensorDriver.h from athletico repository */
 #define OSLO_PRESET_CONFIG_START_INDEX  100
@@ -274,6 +275,7 @@ struct ia_sensor_mgr {
 };
 
 struct cal_coefficient {
+    float version;
     int mode;
     float ch1_i_val;
     float ch1_q_val;
@@ -312,7 +314,7 @@ void usage() {
     4) oslo_config_test -r <1/0>\n\
     5) oslo_config_test -d <reg_addr>\n\
     6) oslo_config_test -w <reg_addr> -v <reg_val>\n\
-    7) oslo_config_test -c '<Mode> <ch1 I_val> <ch1 Q_val> <ch2 I_val> <ch2 Q_val> <ch3 I_val> <ch3 Q_val>' \n\
+    7) oslo_config_test -c 'V:<ver> M:<mode> <ch1 I_val> <ch1 Q_val> <ch2 I_val> <ch2 Q_val> <ch3 I_val> <ch3 Q_val>' \n\
     ", stdout);
 
     fputs("\n\
@@ -579,6 +581,12 @@ int cal_read_persist(void) {
         memset(&coef, 0, sizeof(coef));
         coef.mode = CAL_INVALID_MODE;
 
+        num = fscanf(fid, "Version: %f\n", &coef.version);
+        if (num != 1) {
+            ALOGE("%s: Parse Version failed, num:%d\n", __func__, num);
+            coef.version = CAL_VERSION_DEFAULT;
+        }
+
         num = fscanf(fid, "Mode: %d\n", &coef.mode);
         if (num != 1) {
             ALOGE("%s: Parse Mode failed, num:%d\n", __func__, num);
@@ -605,7 +613,9 @@ int cal_read_persist(void) {
 
         if (CAL_MODE_IS_VALID(coef.mode)) {
             memcpy(&cal_table[coef.mode], &coef, sizeof(coef));
-            ALOGD("%s: %d  %f %f %f %f %f %f\n", __func__, coef.mode,
+            ALOGD("%s: %.1f %d  %f %f %f %f %f %f\n", __func__,
+                  coef.version,
+                  coef.mode,
                   coef.ch1_i_val, coef.ch1_q_val,
                   coef.ch2_i_val, coef.ch2_q_val,
                   coef.ch3_i_val, coef.ch3_q_val);
@@ -644,6 +654,7 @@ int cal_write_persist(const struct cal_coefficient* coef) {
     memcpy(&cal_table[coef->mode], coef, sizeof(struct cal_coefficient));
     for (int i = 0; i < CAL_MODES_MAX; i++) {
         if (CAL_MODE_IS_VALID(cal_table[i].mode)) {
+            fprintf(fid, "Version: %.1f\n", cal_table[i].version);
             fprintf(fid, "Mode: %u\n", cal_table[i].mode);
             fprintf(fid, "ch1: %f %f\n",
                          cal_table[i].ch1_i_val,
@@ -654,7 +665,9 @@ int cal_write_persist(const struct cal_coefficient* coef) {
             fprintf(fid, "ch3: %f %f\n",
                          cal_table[i].ch3_i_val,
                          cal_table[i].ch3_q_val);
-            ALOGD("%s: %d  %f %f %f %f %f %f\n", __func__, cal_table[i].mode,
+            ALOGD("%s: %.1f %d %f %f %f %f %f %f\n", __func__,
+                  cal_table[i].version,
+                  cal_table[i].mode,
                   cal_table[i].ch1_i_val, cal_table[i].ch1_q_val,
                   cal_table[i].ch2_i_val, cal_table[i].ch2_q_val,
                   cal_table[i].ch3_i_val, cal_table[i].ch3_q_val);
@@ -777,12 +790,13 @@ int main(int argc, char *argv[]) {
                 usage();
             } else {
                 int num_matched;
-                num_matched = sscanf(optarg, "%d %f %f %f %f %f %f",
+                num_matched = sscanf(optarg, "V:%f M:%d %f %f %f %f %f %f",
+                                     &cal_coef.version,
                                      &cal_coef.mode,
                                      &cal_coef.ch1_i_val, &cal_coef.ch1_q_val,
                                      &cal_coef.ch2_i_val, &cal_coef.ch2_q_val,
                                      &cal_coef.ch3_i_val, &cal_coef.ch3_q_val);
-                if (num_matched == 7) {
+                if (num_matched == 8) {
                     use_case = 'c';
                 }
                 else {
