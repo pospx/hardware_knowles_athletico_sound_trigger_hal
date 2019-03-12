@@ -64,7 +64,7 @@
 #define CAL_MODE_IS_VALID(x) (x >= 0 && x < CAL_MODES_MAX)
 #define CAL_VERSION_DEFAULT 1.0f
 
-/* copy of SensorDriver.h from athletico repository */
+/* copy of oslo.h from polygon */
 #define OSLO_PRESET_CONFIG_START_INDEX  100
 #define OSLO_CONTROL_START_INDEX        200
 #define OSLO_SETTING_START_INDEX        300
@@ -87,6 +87,9 @@ typedef enum
     OSLO_CONFIG_FACTORY_PRESENCE,
     OSLO_CONFIG_FACTORY_REACH,
     OSLO_CONFIG_CW_MODE,
+    OSLO_CONFIG_IDLE,
+    OSLO_CONFIG_FACTORY_PRESENCE_V1,
+    OSLO_CONFIG_FACTORY_REACH_V1,
 
     /* oslo control - restart oslo when settings change */
     OSLO_CONTROL_RESTART = OSLO_CONTROL_START_INDEX,
@@ -179,6 +182,8 @@ static const oslo_settings_t oslo_driver_settings[] =
     {OSLO_CONFIG_FACTORY_PRESENCE,                          "config_factory_presence"},
     {OSLO_CONFIG_FACTORY_REACH,                             "config_factory_reach"},
     {OSLO_CONFIG_CW_MODE,                                   "config_cw_mode"},
+    {OSLO_CONFIG_FACTORY_PRESENCE_V1,                       "config_factory_presence_v1"},
+    {OSLO_CONFIG_FACTORY_REACH_V1,                          "config_factory_reach_v1"},
     {OSLO_CONTROL_RESTART,                                  "oslo_control_restart"},
     {OSLO_CONTROL_STRIP_HEADERS,                            "oslo_control_strip_headers"},
     {OSLO_CONTROL_SLPI_INT,                                 "oslo_control_slpi_interrupt"},
@@ -241,7 +246,7 @@ static const oslo_settings_t oslo_driver_settings[] =
     {OSLO_PARAM_CHARGE_PUMP,                                "param_charge_pump"},
 };
 
-/* copy of OsloSensorPluginInternal.h from athletico repository */
+/* copy of OsloSensorPluginInternal.h from polygon */
 /* OsloSensor Plugin Param Ids */
 typedef enum oslo_sensor_param_id_e
 {
