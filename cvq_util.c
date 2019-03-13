@@ -987,6 +987,18 @@ int setup_sensor_package(struct iaxxx_odsp_hw *odsp_hdl)
         goto exit;
     }
 
+    cdata.type = CONFIG_FILE;
+    cdata.data.fdata.filename = SENSOR_CONFIG_VAL;
+    err = iaxxx_odsp_plugin_set_creation_config(odsp_hdl,
+                                                SENSOR_INSTANCE_ID,
+                                                IAXXX_HMD_BLOCK_ID,
+                                                cdata);
+    if (err == -1) {
+        ALOGE("%s: ERROR: Sensor configuration %d(%s)",
+            __func__, errno, strerror(errno));
+        return err;
+    }
+
     // Create Dummy sensor plugin
     err = iaxxx_odsp_plugin_create(odsp_hdl, SENSOR_INSTANCE_ID,
                                    SENSOR_PRIORITY, SENSOR_PKG_ID,
