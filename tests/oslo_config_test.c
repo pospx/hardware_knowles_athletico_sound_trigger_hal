@@ -263,6 +263,16 @@ typedef enum oslo_sensor_param_id_e
     OSLO_SENSOR_PARAM_ENABLE_SLPY_RAW,
     OSLO_SENSOR_PARAM_HOST,
     OSLO_SENSOR_STATE,
+    OSLO_TESTMODE_RESET,
+    OSLO_TESTMODE_PRESENCE_ON,
+    OSLO_TESTMODE_PRESENCE_OFF,
+    OSLO_TESTMODE_SWIPE,
+    OSLO_TESTMODE_FLICK,
+    OSLO_TESTMODE_REACH_IN,
+    OSLO_TESTMODE_REACH_OUT,
+    OSLO_TESTMODE_REACH_SWIPE,
+    OSLO_TESTMODE_REACH_FLICK,
+    OSLO_TESTMODE_REACH_SWIPE_FLICK,
 
     /* Force enums to be of size int */
     OSLO_SENSOR_PARAM_ID_FORCE_SIZE = INT_MAX,
@@ -277,9 +287,25 @@ static const oslo_settings_t oslo_plugin_settings[] =
     {OSLO_SENSOR_PARAM_HOST,                                "plugin_set_host"},
     {OSLO_SENSOR_STATE,                                     "plugin_oslo_state"},
 };
+
+/* map oslo plugin test mode name to param id */
+static const oslo_settings_t oslo_plugin_test_mode[] =
+{
+    {OSLO_TESTMODE_RESET,                                   "reset"},
+    {OSLO_TESTMODE_PRESENCE_ON,                             "presence_on"},
+    {OSLO_TESTMODE_PRESENCE_OFF,                            "presence_off"},
+    {OSLO_TESTMODE_SWIPE,                                   "swipe"},
+    {OSLO_TESTMODE_FLICK,                                   "flick"},
+    {OSLO_TESTMODE_REACH_IN,                                "reach_in"},
+    {OSLO_TESTMODE_REACH_OUT,                               "reach_out"},
+    {OSLO_TESTMODE_REACH_SWIPE,                             "reach+swipe"},
+    {OSLO_TESTMODE_REACH_FLICK,                             "reach+flick"},
+    {OSLO_TESTMODE_REACH_SWIPE_FLICK,                       "reach+swipe+flick"},
+};
 #define COUNT_OF(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 #define OSLO_DRIVER_SETTINGS_SIZE COUNT_OF(oslo_driver_settings)
 #define OSLO_PLUGIN_SETTINGS_SIZE COUNT_OF(oslo_plugin_settings)
+#define OSLO_PLUGIN_TESTMODE_SIZE COUNT_OF(oslo_plugin_test_mode)
 
 struct ia_sensor_mgr {
     FILE *dev_node;
@@ -326,6 +352,7 @@ void usage() {
     5) oslo_config_test -d <reg_addr>\n\
     6) oslo_config_test -w <reg_addr> -v <reg_val>\n\
     7) oslo_config_test -c 'V:<ver> M:<mode> <ch1 I_val> <ch1 Q_val> <ch2 I_val> <ch2 Q_val> <ch3 I_val> <ch3 Q_val>' \n\
+    8) oslo_config_test -t <test_mode> -v <elapsed time>\n\
     ", stdout);
 
     fputs("\n\
@@ -340,6 +367,7 @@ void usage() {
     -d          Read register.\n\
     -w          Write register.\n\
     -c          Store Calibration coefficients to persist file.\n\
+    -t          Set the system into a test mode with optional gesture detection spoofing.\n\
     ", stdout);
 
     fputs("\n\
@@ -354,6 +382,16 @@ void usage() {
     }
     for (i = 0; i < OSLO_PLUGIN_SETTINGS_SIZE; i ++) {
         fprintf(stdout, "    %s\n", oslo_plugin_settings[i].setting_name, stdout);
+    }
+
+    fputs("\n\
+    List of all <test_mode>\n\
+    ---------\
+    ", stdout);
+    fputs("\n", stdout);
+
+    for (i = 0; i < OSLO_PLUGIN_TESTMODE_SIZE; i ++) {
+        fprintf(stdout, "    %s\n", oslo_plugin_test_mode[i].setting_name, stdout);
     }
 
     exit(EXIT_FAILURE);
@@ -501,6 +539,23 @@ int oslo_plugin_setting_lookup(char *in)
         if (strcmp(in, oslo_plugin_settings[i].setting_name) == 0)
         {
             ret = oslo_plugin_settings[i].setting_id;
+            break;
+        }
+    }
+
+    return ret;
+}
+
+int oslo_plugin_test_mode_lookup(char *in)
+{
+    unsigned int i;
+    int ret = -1;
+
+    for (i = 0; i < OSLO_PLUGIN_TESTMODE_SIZE; i++)
+    {
+        if (strcmp(in, oslo_plugin_test_mode[i].setting_name) == 0)
+        {
+            ret = oslo_plugin_test_mode[i].setting_id;
             break;
         }
     }
@@ -703,12 +758,13 @@ int main(int argc, char *argv[]) {
     uint32_t reg_val;
     bool reg_val_set = false;
     struct cal_coefficient cal_coef = { .mode = CAL_INVALID_MODE };
+    int test_mode_param_id = -1;
 
     if (argc <= 1) {
         usage();
     }
 
-    while ((c = getopt_long (argc, argv, "s:v:g:p:r:d:w:c:", long_options, NULL)) != -1) {
+    while ((c = getopt_long (argc, argv, "s:v:g:p:r:d:w:c:t:", long_options, NULL)) != -1) {
         switch (c) {
         case 's':
             if (NULL == optarg) {
@@ -737,6 +793,9 @@ int main(int argc, char *argv[]) {
                 } else if ('w' == use_case) {
                     reg_val = strtoul(optarg, NULL, 0);
                     reg_val_set = true;
+                } else if ('t' == use_case) {
+                    param_val = strtof(optarg, NULL);
+                    use_case = 'v';
                 } else {
                     fprintf(stderr, "Incorrect usage, v option should be the second option");
                     usage();
@@ -816,6 +875,21 @@ int main(int argc, char *argv[]) {
                 }
             }
         break;
+        case 't':
+            if (NULL == optarg) {
+                fprintf(stderr, "Incorrect usage, t option requires an argument");
+                usage();
+            } else {
+                test_mode_param_id = oslo_plugin_test_mode_lookup(optarg);
+                if (test_mode_param_id == -1) {
+                    fprintf(stderr, "Invalid setting %s", optarg);
+                    usage();
+                } else {
+                    use_case = 't';
+                    fprintf(stderr, "Executing test mode %s\n", optarg);
+                }
+            }
+        break;
         case GETOPT_HELP_CHAR:
         default:
             usage();
@@ -840,6 +914,14 @@ int main(int argc, char *argv[]) {
             }
             else if (plugin_param_id != -1) {
                 oslo_plugin_set_param(plugin_param_id, param_val);
+            }
+            else if (test_mode_param_id != -1) {
+                if (param_val > 0) {
+                    ALOGD("%s: Test mode: %d with duration: %f", __func__, test_mode_param_id, param_val);
+                } else {
+                    ALOGD("%s: Test mode: %d with no duration", __func__, test_mode_param_id);
+                }
+                oslo_plugin_set_param(test_mode_param_id, param_val);
             }
         } else if ('g' == use_case) {
             if (driver_param_id != -1) {
