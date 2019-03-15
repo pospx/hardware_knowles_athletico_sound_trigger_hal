@@ -1315,20 +1315,3 @@ int get_entity_param_blk(struct iaxxx_odsp_hw *odsp_hdl, void *payload,
     }
     return err;
 }
-
-int setup_mpll_clock_source(struct iaxxx_odsp_hw *odsp_hdl,
-                            const int clk_source, const uint32_t clk_value)
-{
-    int err;
-    ALOGD("+%s+ clk_src:%d", __func__, clk_source);
-
-    err = iaxxx_odsp_set_mpll_src(odsp_hdl,
-                        clk_source, clk_value);
-    if (err != 0) {
-        ALOGE("%s: ERROR Failed to set internal oscillator",
-                __func__);
-        return err;
-    }
-    ALOGD("-%s-", __func__);
-    return err;
-}

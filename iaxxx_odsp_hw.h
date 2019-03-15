@@ -576,19 +576,6 @@ int iaxxx_odsp_plugin_get_endpoint_status(
             struct iaxxx_plugin_endpoint_status_data *plugin_ep_status_data);
 
 /**
- * Set the MPLL clock source and value
- *
- * Input - odsp_hd_hdl  - Handle to odsp hw structure
- *         clk_source   - Clock source, internal or external
- *         clk_value    - Clock value
- *
- * Output - 0 on success, on failure < 0
- */
-int iaxxx_odsp_set_mpll_src(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                            const enum iaxxx_pll_source clk_source,
-                            const uint32_t clk_value);
-
-/**
  * Returns the execution status of given processor
  *
  * Input  - odsp_hw_hdl     - Handle to odsp hw structure

@@ -179,6 +179,4 @@ int enable_downlink_audio_route(struct audio_route *route_hdl, bool enable);
 
 int flush_model(struct iaxxx_odsp_hw *odsp_hdl, int kw_type);
 int get_entity_param_blk(struct iaxxx_odsp_hw *odsp_hdl, void *payload, unsigned int payload_size);
-int setup_mpll_clock_source(struct iaxxx_odsp_hw *odsp_hdl,
-                            const int clk_source, const uint32_t clk_value);
 #endif /* _CVQ_IOCTL_H */

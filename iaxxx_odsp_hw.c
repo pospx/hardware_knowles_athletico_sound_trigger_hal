@@ -1530,45 +1530,6 @@ func_exit:
 }
 
 /**
- * Set the MPLL clock source and value
- *
- * Input - odsp_hd_hdl  - Handle to odsp hw structure
- *         clk_source   - Clock source, internal or external
- *         clk_value    - Clock value
- *
- * Output - 0 on success, on failure < 0
- */
-int iaxxx_odsp_set_mpll_src(struct iaxxx_odsp_hw *odsp_hw_hdl,
-                            const enum iaxxx_pll_source clk_source,
-                            const uint32_t clk_value)
-{
-    int err = 0;
-    struct iaxxx_pll_clk_data pll_clk_data;
-
-    FUNCTION_ENTRY_LOG;
-
-    if (odsp_hw_hdl == NULL) {
-        ALOGE("%s: ERROR: Invalid handle to iaxxx_odsp_hw", __func__);
-        err = -1;
-        goto func_exit;
-    }
-
-    pll_clk_data.clk_src = clk_source;
-    pll_clk_data.clk_val = clk_value;
-
-    err = ioctl(fileno(odsp_hw_hdl->dev_node), ODSP_SET_MPLL_SRC,
-                (unsigned long)&pll_clk_data);
-    if (err != 0) {
-        ALOGE("%s: ERROR: Failed to set the MPLL source with error %s",
-            __func__, strerror(errno));
-    }
-func_exit:
-    FUNCTION_EXIT_LOG;
-    return err;
-
-}
-
-/**
  * Returns the execution status of given processor
  *
  * Input  - odsp_hw_hdl     - Handle to odsp hw structure

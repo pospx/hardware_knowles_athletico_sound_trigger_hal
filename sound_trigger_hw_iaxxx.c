@@ -144,7 +144,6 @@ struct knowles_sound_trigger_device {
     bool is_mic_route_enabled;
     bool is_music_playing;
     bool is_bargein_route_enabled;
-    bool is_internal_osc_switched;
     bool is_buffer_package_loaded;
     bool is_st_hal_ready;
 
@@ -413,22 +412,6 @@ static void stdev_close_term_sock(struct knowles_sound_trigger_device *stdev)
         close(stdev->recv_sock);
         stdev->recv_sock = -1;
     }
-}
-
-static int switch_internal_osc(struct knowles_sound_trigger_device *stdev)
-{
-    int err = 0;
-    if (stdev->is_internal_osc_switched == false) {
-        err = setup_mpll_clock_source(stdev->odsp_hdl,
-                            IAXXX_INT_OSC, 0);
-        if (err != 0) {
-            ALOGE("%s: ERROR Failed to set internal oscillator",
-                __func__);
-            return err;
-        }
-        stdev->is_internal_osc_switched = true;
-    }
-    return err;
 }
 
 static int configure_buffer_plugin(struct knowles_sound_trigger_device *stdev,
@@ -750,7 +733,6 @@ static int handle_input_source(struct knowles_sound_trigger_device *stdev,
      */
     if (enable) {
         if (stdev->is_mic_route_enabled == false) {
-            switch_internal_osc(stdev);
             stdev->is_mic_route_enabled = true;
             err = enable_mic_route(stdev->route_hdl, true, ct);
             if (err != 0) {
@@ -806,13 +788,6 @@ static int handle_input_source(struct knowles_sound_trigger_device *stdev,
                     stdev->is_mic_route_enabled = true;
                     goto exit;
                 }
-                if (stdev->is_internal_osc_switched == true &&
-                    !(stdev->current_enable & OSLO_MASK) &&
-                    stdev->is_mic_route_enabled == false) {
-                    // Mic disable, Sensor disable, internal osc = false
-                    ALOGD("external osc switch happens in driver runtime pm");
-                    stdev->is_internal_osc_switched = false;
-                }
             }
         }
     }
@@ -850,7 +825,6 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
 
     if (stdev->is_mic_route_enabled == true) {
         //TBD
-        switch_internal_osc(stdev);
         err = enable_mic_route(stdev->route_hdl, true, ct);
         if (err != 0) {
             ALOGE("failed to restart mic route");
@@ -877,7 +851,6 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
             if (check_uuid_equality(stdev->models[i].uuid,
                                     stdev->sensor_model_uuid)) {
                 // setup the sensor route
-                switch_internal_osc(stdev);
                 err = setup_sensor_package(stdev->odsp_hdl);
                 if (err != 0) {
                     ALOGE("%s: setup Sensor package failed", __func__);
@@ -916,12 +889,6 @@ exit:
 static int fw_crash_recovery(struct knowles_sound_trigger_device *stdev)
 {
     int err = 0;
-
-    err = iaxxx_odsp_set_mpll_src(stdev->odsp_hdl, IAXXX_INT_OSC, 0);
-    if (err != 0) {
-        ALOGE("%s: ERROR Failed to set internal oscillator",
-            __func__);
-    }
 
     // Redownload the keyword model files and start recognition
     err = restart_recognition(stdev);
@@ -1315,7 +1282,6 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
     } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->sensor_model_uuid)) {
         // setup the sensor route
-        switch_internal_osc(stdev);
         stdev->current_enable = stdev->current_enable | OSLO_MASK;
         ret = setup_sensor_package(stdev->odsp_hdl);
         if (ret != 0) {
@@ -1405,12 +1371,6 @@ static int stdev_unload_sound_model(const struct sound_trigger_hw_device *dev,
             ALOGE("%s: destroy Sensor package failed", __func__);
         }
         stdev->current_enable = stdev->current_enable & ~OSLO_MASK;
-
-        if (stdev->is_internal_osc_switched == true &&
-            stdev->is_mic_route_enabled == false) {
-            ALOGD("external osc switch happens in driver runtime pm");
-            stdev->is_internal_osc_switched = false;
-        }
     } else if (check_uuid_equality(stdev->models[handle].uuid,
                                 stdev->chre_model_uuid)) {
         // Disable the CHRE route
@@ -1950,7 +1910,6 @@ static int stdev_open(const hw_module_t *module, const char *name,
     stdev->is_mic_route_enabled = false;
     stdev->is_music_playing = false;
     stdev->is_bargein_route_enabled = false;
-    stdev->is_internal_osc_switched = false;
     stdev->is_buffer_package_loaded = false;
     stdev->current_enable = 0;
     stdev->bc = NOT_CONFIGURED;
