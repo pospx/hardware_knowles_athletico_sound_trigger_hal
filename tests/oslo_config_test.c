@@ -90,6 +90,9 @@ typedef enum
     OSLO_CONFIG_IDLE,
     OSLO_CONFIG_FACTORY_PRESENCE_V1,
     OSLO_CONFIG_FACTORY_REACH_V1,
+    OSLO_CONFIG_REACH,
+    OSLO_CONFIG_PRESENCE_V1,
+    OSLO_CONFIG_REACH_V1,
 
     /* oslo control - restart oslo when settings change */
     OSLO_CONTROL_RESTART = OSLO_CONTROL_START_INDEX,
@@ -184,6 +187,9 @@ static const oslo_settings_t oslo_driver_settings[] =
     {OSLO_CONFIG_CW_MODE,                                   "config_cw_mode"},
     {OSLO_CONFIG_FACTORY_PRESENCE_V1,                       "config_factory_presence_v1"},
     {OSLO_CONFIG_FACTORY_REACH_V1,                          "config_factory_reach_v1"},
+    {OSLO_CONFIG_REACH,                                     "config_reach"},
+    {OSLO_CONFIG_PRESENCE_V1,                               "config_presence_v1"},
+    {OSLO_CONFIG_REACH_V1,                                  "config_reach_v1"},
     {OSLO_CONTROL_RESTART,                                  "oslo_control_restart"},
     {OSLO_CONTROL_STRIP_HEADERS,                            "oslo_control_strip_headers"},
     {OSLO_CONTROL_SLPI_INT,                                 "oslo_control_slpi_interrupt"},
