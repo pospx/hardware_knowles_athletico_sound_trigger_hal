@@ -1166,9 +1166,9 @@ static int stop_recognition(struct knowles_sound_trigger_device *stdev,
 
     destroy_package(stdev, model);
 
-    if (!(stdev->current_enable & HOTWORD_MASK &&
-        stdev->current_enable & AMBIENT_MASK &&
-        stdev->current_enable & ENTITY_MASK)) {
+    if (!((stdev->current_enable & HOTWORD_MASK) ||
+        (stdev->current_enable & AMBIENT_MASK) ||
+        (stdev->current_enable & ENTITY_MASK))) {
         tear_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
     }
 
@@ -1473,9 +1473,9 @@ static int stdev_start_recognition(
 
     handle_input_source(stdev, true);
 
-    if (!(stdev->current_enable & HOTWORD_MASK &&
-        stdev->current_enable & AMBIENT_MASK &&
-        stdev->current_enable & ENTITY_MASK)) {
+    if (!((stdev->current_enable & HOTWORD_MASK) ||
+        (stdev->current_enable & AMBIENT_MASK) ||
+        (stdev->current_enable & ENTITY_MASK))) {
         set_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
     }
 
@@ -2011,9 +2011,16 @@ int sound_trigger_hw_call_back(audio_event_type_t event,
         for (i = 0; i < MAX_MODELS; i++) {
             if (stdev->models[i].is_active == true) {
                 tear_package_route(stdev, stdev->models[i].uuid,
-                                stdev->is_mic_route_enabled);
+                                stdev->is_bargein_route_enabled);
                 stdev->models[i].is_active = false;
+                destroy_package(stdev, &stdev->models[i]);
             }
+        }
+
+        if (!((stdev->current_enable & HOTWORD_MASK) ||
+            (stdev->current_enable & AMBIENT_MASK) ||
+            (stdev->current_enable & ENTITY_MASK))) {
+            tear_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
         }
         handle_input_source(stdev, false);
         break;
