@@ -804,11 +804,11 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
     enum clock_type ct = INTERNAL_OSCILLATOR;
     /*
      * The libaudioroute library doesn't set the mixer controls if previously
-     * applied values are the same, so we need to teardown the route so that
-     * libaudio_route can clear up its internal memory and then we can setup
-     * the routes again.
+     * applied values are the same or the active_count > 0, so we need to
+     * teardown the route so that it can clear up the value and active_count.
+     * Then we could setup the routes again.
      */
-    audio_route_reset(stdev->route_hdl);
+
     stdev->current_enable = 0;
 
     if (stdev->is_music_playing == true &&
@@ -824,7 +824,10 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
     }
 
     if (stdev->is_mic_route_enabled == true) {
-        //TBD
+        err = enable_mic_route(stdev->route_hdl, false, ct);
+        if (err != 0) {
+            ALOGE("failed to tear mic route");
+        }
         err = enable_mic_route(stdev->route_hdl, true, ct);
         if (err != 0) {
             ALOGE("failed to restart mic route");
@@ -836,6 +839,11 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
         err = setup_aec_package(stdev->odsp_hdl);
         if (err != 0) {
             ALOGE("Failed to restart AEC package");
+        }
+        err = enable_bargein_route(stdev->route_hdl,
+                                !stdev->is_bargein_route_enabled);
+        if (err != 0) {
+            ALOGE("Failed to tear bargein route");
         }
         err = enable_bargein_route(stdev->route_hdl,
                                 stdev->is_bargein_route_enabled);
@@ -856,7 +864,11 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
                     ALOGE("%s: setup Sensor package failed", __func__);
                     goto exit;
                 }
-
+                err = set_sensor_route(stdev->route_hdl, false);
+                if (err != 0) {
+                    ALOGE("%s: tear Sensor route fail", __func__);
+                    goto exit;
+                }
                 err = set_sensor_route(stdev->route_hdl, true);
                 if (err != 0) {
                     ALOGE("%s: Sensor route fail", __func__);
@@ -866,6 +878,8 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
         }
         if (stdev->models[i].is_active == true) {
             setup_package(stdev, &stdev->models[i]);
+            tear_package_route(stdev, stdev->models[i].uuid,
+                            stdev->is_bargein_route_enabled);
             set_package_route(stdev, stdev->models[i].uuid,
                             stdev->is_bargein_route_enabled);
         }
@@ -878,9 +892,11 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
             ALOGE("Failed to create the buffer plugin");
             goto exit;
         }
+        tear_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
         set_buffer_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
     }
 
+    ALOGD("%s: recovery done", __func__);
 exit:
     return err;
 }
