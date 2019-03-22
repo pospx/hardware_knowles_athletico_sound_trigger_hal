@@ -38,7 +38,9 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include <sys/ioctl.h>
+#include <inttypes.h>
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
@@ -454,7 +456,7 @@ uint32_t oslo_driver_get_param(struct ia_sensor_mgr *smd, int param_id) {
     return sp.param_val;
 }
 
-void oslo_plugin_set_param(int param_id, float param_val) {
+void oslo_plugin_set_param(int param_id, uint32_t param_val) {
     struct iaxxx_odsp_hw *ioh = NULL;
     int err = 0;
 
@@ -467,10 +469,10 @@ void oslo_plugin_set_param(int param_id, float param_val) {
     err = iaxxx_odsp_plugin_set_parameter(ioh, SENSOR_INSTANCE_ID, param_id,
                                           param_val, IAXXX_HMD_BLOCK_ID);
     if (err != 0) {
-        ALOGE("Failed to set param_id %u with error %d", param_id, err);
+        ALOGE("Failed to set param_id %d with error %d", param_id, err);
     }
     else {
-        ALOGD("Set param_id %d with value %f", param_id, param_val);
+        ALOGD("Set param_id %d with value %" PRIu32, param_id, param_val);
     }
 
     if (ioh) {
@@ -916,12 +918,16 @@ int main(int argc, char *argv[]) {
                 oslo_plugin_set_param(plugin_param_id, param_val);
             }
             else if (test_mode_param_id != -1) {
-                if (param_val > 0) {
-                    ALOGD("%s: Test mode: %d with duration: %f", __func__, test_mode_param_id, param_val);
+                uint32_t integer_param = (uint32_t)lrintf(param_val);
+                if (param_val < 0) {
+                    ALOGD("%s: Test mode: %d with no event", __func__, test_mode_param_id);
+                    integer_param = UINT32_MAX;
+                } else if (param_val > 0) {
+                    ALOGD("%s: Test mode: %d with duration: %" PRIu32, __func__, test_mode_param_id, integer_param);
                 } else {
                     ALOGD("%s: Test mode: %d with no duration", __func__, test_mode_param_id);
                 }
-                oslo_plugin_set_param(test_mode_param_id, param_val);
+                oslo_plugin_set_param(test_mode_param_id, integer_param);
             }
         } else if ('g' == use_case) {
             if (driver_param_id != -1) {
