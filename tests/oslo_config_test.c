@@ -275,6 +275,7 @@ typedef enum oslo_sensor_param_id_e
     OSLO_TESTMODE_REACH_SWIPE,
     OSLO_TESTMODE_REACH_FLICK,
     OSLO_TESTMODE_REACH_SWIPE_FLICK,
+    OSLO_SENSOR_CONFIG_RECOVERY_COUNTER,
 
     /* Force enums to be of size int */
     OSLO_SENSOR_PARAM_ID_FORCE_SIZE = INT_MAX,
@@ -288,6 +289,7 @@ static const oslo_settings_t oslo_plugin_settings[] =
     {OSLO_SENSOR_PARAM_ENABLE_SLPY_RAW,                     "plugin_slpy_raw"},
     {OSLO_SENSOR_PARAM_HOST,                                "plugin_set_host"},
     {OSLO_SENSOR_STATE,                                     "plugin_oslo_state"},
+    {OSLO_SENSOR_CONFIG_RECOVERY_COUNTER,                   "plugin_config_retries"},
 };
 
 /* map oslo plugin test mode name to param id */
