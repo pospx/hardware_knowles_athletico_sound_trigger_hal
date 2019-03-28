@@ -855,6 +855,18 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
     // [TODO] Recovery function still TBD.
     // Download all the keyword models files that were previously loaded
     for (i = 0; i < MAX_MODELS; i++) {
+        if (stdev->models[i].is_active == true) {
+            setup_package(stdev, &stdev->models[i]);
+            tear_package_route(stdev, stdev->models[i].uuid,
+                            stdev->is_bargein_route_enabled);
+            set_package_route(stdev, stdev->models[i].uuid,
+                            stdev->is_bargein_route_enabled);
+        }
+    }
+
+    // reload Oslo part after every package loaded to avoid HMD memory overlap
+    // issue, b/128914464
+    for (i = 0; i < MAX_MODELS; i++) {
         if (stdev->models[i].is_loaded == true) {
             if (check_uuid_equality(stdev->models[i].uuid,
                                     stdev->sensor_model_uuid)) {
@@ -875,13 +887,6 @@ static int restart_recognition(struct knowles_sound_trigger_device *stdev)
                     goto exit;
                 }
             }
-        }
-        if (stdev->models[i].is_active == true) {
-            setup_package(stdev, &stdev->models[i]);
-            tear_package_route(stdev, stdev->models[i].uuid,
-                            stdev->is_bargein_route_enabled);
-            set_package_route(stdev, stdev->models[i].uuid,
-                            stdev->is_bargein_route_enabled);
         }
     }
 
