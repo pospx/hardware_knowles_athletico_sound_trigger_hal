@@ -106,14 +106,11 @@ LOCAL_C_INCLUDES += external/tinyalsa/include \
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
-
-LOCAL_PRELINK_MODULE := false
-LOCAL_MODULE := oslo_config_test
-LOCAL_SRC_FILES := tests/oslo_config_test.c \
-			tests/oslo_sound_model_control.cpp
+LOCAL_MODULE := libosloutils
+LOCAL_SRC_FILES := tests/oslo_sound_model_control.cpp \
+			tests/oslo_iaxxx_sensor_control.c
 LOCAL_C_INCLUDES += external/tinyalsa/include \
 			$(call include-path-for, audio-route)
-LOCAL_32_BIT_ONLY := true
 LOCAL_HEADER_LIBRARIES := libhardware_headers
 LOCAL_SHARED_LIBRARIES := liblog \
 			libutils \
@@ -122,8 +119,34 @@ LOCAL_SHARED_LIBRARIES := liblog \
 			libhidlbase \
 			libodsp \
 			android.hardware.soundtrigger@2.0
+LOCAL_MODULE_TAGS := optional
 LOCAL_PROPRIETARY_MODULE := true
+include $(BUILD_SHARED_LIBRARY)
 
+include $(CLEAR_VARS)
+LOCAL_PRELINK_MODULE := false
+LOCAL_MODULE := oslo_data_injection_test
+LOCAL_SRC_FILES := tests/oslo_data_injection_test.c
+LOCAL_32_BIT_ONLY := true
+LOCAL_HEADER_LIBRARIES := libhardware_headers
+LOCAL_SHARED_LIBRARIES := liblog \
+			libutils \
+			libcutils \
+			libosloutils
+LOCAL_PROPRIETARY_MODULE := true
+include $(BUILD_EXECUTABLE)
+
+include $(CLEAR_VARS)
+LOCAL_PRELINK_MODULE := false
+LOCAL_MODULE := oslo_config_test
+LOCAL_SRC_FILES := tests/oslo_config_test.c
+LOCAL_32_BIT_ONLY := true
+LOCAL_HEADER_LIBRARIES := libhardware_headers
+LOCAL_SHARED_LIBRARIES := liblog \
+			libutils \
+			libcutils \
+			libosloutils
+LOCAL_PROPRIETARY_MODULE := true
 include $(BUILD_EXECUTABLE)
 
 include $(CLEAR_VARS)
