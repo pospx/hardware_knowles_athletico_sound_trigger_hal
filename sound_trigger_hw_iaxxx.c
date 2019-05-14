@@ -151,6 +151,8 @@ struct knowles_sound_trigger_device {
     bool is_dmx_proc_on;
     int hotword_buffer_enable;
     int music_buffer_enable;
+    bool is_chre_enable;
+    bool is_media_recording;
 
     unsigned int current_enable;
 
@@ -1413,12 +1415,20 @@ static int stdev_load_sound_model(const struct sound_trigger_hw_device *dev,
         stdev->models[i].kw_id = USELESS_KW_ID;
     } else if (check_uuid_equality(stdev->models[i].uuid,
                                 stdev->chre_model_uuid)) {
-        // setup the CHRE route and Mic route.
-        stdev->models[i].is_active = true;
-        handle_input_source(stdev, true);
-        setup_package(stdev, &stdev->models[i]);
-        set_chre_audio_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
+        if (hw_properties.concurrent_capture == false &&
+            stdev->is_media_recording == true) {
+            ALOGW("%s: device is recording, can't enable chre now", __func__);
+        } else {
+            if (stdev->models[i].is_active == false) {
+                stdev->models[i].is_active = true;
+                handle_input_source(stdev, true);
+                setup_package(stdev, &stdev->models[i]);
+                set_package_route(stdev, stdev->models[i].uuid,
+                                stdev->is_bargein_route_enabled);
+            }
+        }
         stdev->models[i].kw_id = USELESS_KW_ID;
+        stdev->is_chre_enable = true;
     } else {
         ALOGE("%s: ERROR: unknown keyword model file", __func__);
         ret = -EINVAL;
@@ -1494,11 +1504,14 @@ static int stdev_unload_sound_model(const struct sound_trigger_hw_device *dev,
         stdev->current_enable = stdev->current_enable & ~OSLO_MASK;
     } else if (check_uuid_equality(stdev->models[handle].uuid,
                                 stdev->chre_model_uuid)) {
-        // Disable the CHRE route
-        stdev->models[handle].is_active = false;
-        tear_chre_audio_route(stdev->route_hdl, stdev->is_bargein_route_enabled);
-        destroy_package(stdev, &stdev->models[handle]);
-        handle_input_source(stdev, false);
+        if (stdev->models[handle].is_active == true) {
+            stdev->models[handle].is_active = false;
+            tear_package_route(stdev, stdev->models[handle].uuid,
+                            stdev->is_bargein_route_enabled);
+            destroy_package(stdev, &stdev->models[handle]);
+            handle_input_source(stdev, false);
+        }
+        stdev->is_chre_enable = false;
     }
 
     stdev->models[handle].sound_model_callback = NULL;
@@ -2061,6 +2074,8 @@ static int stdev_open(const hw_module_t *module, const char *name,
     stdev->current_enable = 0;
     stdev->is_hmd_proc_on = false;
     stdev->is_dmx_proc_on = false;
+    stdev->is_chre_enable = false;
+    stdev->is_media_recording = false;
 
     str_to_uuid(HOTWORD_AUDIO_MODEL, &stdev->hotword_model_uuid);
     str_to_uuid(WAKEUP_MODEL, &stdev->wakeup_model_uuid);
@@ -2142,6 +2157,21 @@ int sound_trigger_hw_call_back(audio_event_type_t event,
 
     switch (event) {
     case AUDIO_EVENT_CAPTURE_DEVICE_INACTIVE:
+        if (stdev->is_chre_enable == true) {
+            for (i = 0; i < MAX_MODELS; i++) {
+                if (check_uuid_equality(stdev->models[i].uuid,
+                                        stdev->chre_model_uuid)) {
+                    if (stdev->models[i].is_active == false) {
+                        stdev->models[i].is_active = true;
+                        handle_input_source(stdev, true);
+                        setup_package(stdev, &stdev->models[i]);
+                        set_package_route(stdev, stdev->models[i].uuid,
+                                        stdev->is_bargein_route_enabled);
+                    }
+                }
+            }
+        }
+        stdev->is_media_recording = false;
     case AUDIO_EVENT_CAPTURE_STREAM_INACTIVE:
         /*
          * [TODO] handle capture device on/off event
@@ -2151,6 +2181,7 @@ int sound_trigger_hw_call_back(audio_event_type_t event,
         ALOGD("%s: handle capture inactive event %d", __func__, event);
         break;
     case AUDIO_EVENT_CAPTURE_DEVICE_ACTIVE:
+        stdev->is_media_recording = true;
     case AUDIO_EVENT_CAPTURE_STREAM_ACTIVE:
         /*
          * Handle capture active event
@@ -2164,11 +2195,13 @@ int sound_trigger_hw_call_back(audio_event_type_t event,
                                 stdev->is_bargein_route_enabled);
                 stdev->models[i].is_active = false;
                 destroy_package(stdev, &stdev->models[i]);
-                if (!(stdev->current_enable & PLUGIN1_MASK))
+                if ((stdev->hotword_buffer_enable) &&
+                    !(stdev->current_enable & PLUGIN1_MASK))
                     tear_hotword_buffer_route(stdev->route_hdl,
                                             stdev->is_bargein_route_enabled);
 
-                if (!(stdev->current_enable & PLUGIN2_MASK))
+                if ((stdev->music_buffer_enable) &&
+                    !(stdev->current_enable & PLUGIN2_MASK))
                     tear_music_buffer_route(stdev->route_hdl,
                                             stdev->is_bargein_route_enabled);
 
