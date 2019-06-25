@@ -1575,6 +1575,7 @@ static int crash_recovery(struct knowles_sound_trigger_device *stdev)
     int err = 0;
 
     set_default_apll_clk(stdev->mixer);
+    setup_slpi_wakeup_event(stdev->odsp_hdl, true);
 
     // Redownload the keyword model files and start recognition
     err = restart_recognition(stdev);
@@ -1973,7 +1974,7 @@ static void *callback_thread_loop(void *context)
         }
 
         set_default_apll_clk(stdev->mixer);
-
+        setup_slpi_wakeup_event(stdev->odsp_hdl, true);
         stdev->is_st_hal_ready = true;
     }
     pthread_mutex_unlock(&stdev->lock);
@@ -2831,6 +2832,8 @@ static int stdev_close(hw_device_t *device)
         ret = -EAGAIN;
         goto exit;
     }
+
+    setup_slpi_wakeup_event(stdev->odsp_hdl, false);
 
     stdev->opened = false;
 

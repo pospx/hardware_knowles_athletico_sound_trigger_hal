@@ -1745,5 +1745,36 @@ int reset_fw(struct iaxxx_odsp_hw *odsp_hdl)
 exit:
     ALOGD("-%s-", __func__);
     return err;
+}
 
+int setup_slpi_wakeup_event(struct iaxxx_odsp_hw *odsp_hdl, bool enabled)
+{
+    int err;
+
+    ALOGD("+%s+", __func__);
+
+    if (enabled) {
+        err = iaxxx_odsp_evt_subscribe(odsp_hdl, IAXXX_SYSID_CTRL_MGR_CM4,
+                                    IAXXX_HOST1_WAKEUP_EVENT_ID,
+                                    IAXXX_SYSID_HOST_1, 0);
+        if (err != 0) {
+            ALOGE("%s: ERROR: ODSP_EVENT_SUBSCRIBE (for event_id %d, src_id %d)"
+                " IOCTL failed %d(%s)", __func__, IAXXX_HOST1_WAKEUP_EVENT_ID,
+                IAXXX_SYSID_CTRL_MGR_CM4, errno, strerror(errno));
+            goto exit;
+        }
+    } else {
+        err = iaxxx_odsp_evt_unsubscribe(odsp_hdl, IAXXX_SYSID_CTRL_MGR_CM4,
+                                        IAXXX_HOST1_WAKEUP_EVENT_ID,
+                                        IAXXX_SYSID_HOST_1);
+        if (err != 0) {
+            ALOGE("%s: ERROR: ODSP_EVENT_UNSUBSCRIBE (for event_id %d, src_id %d)"
+                " IOCTL failed %d(%s)", __func__, IAXXX_HOST1_WAKEUP_EVENT_ID,
+                IAXXX_SYSID_CTRL_MGR_CM4, errno, strerror(errno));
+            goto exit;
+        }
+    }
+exit:
+    ALOGD("-%s-", __func__);
+    return err;
 }
