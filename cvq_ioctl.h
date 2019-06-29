@@ -54,6 +54,7 @@
 #define SENSOR_PRESENCE_MODE    0
 #define SENSOR_DETECTED_MODE    1
 #define SENSOR_MAX_MODE         2
+#define OSLO_DATA_EVENT_ID      1
 #define OSLO_CONFIGURED         (0x201)
 #define OSLO_DESTROYED          (0x202)
 #define OSLO_EP_DISCONNECT      (0x205)
