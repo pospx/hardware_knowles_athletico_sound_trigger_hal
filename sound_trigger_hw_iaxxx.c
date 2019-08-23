@@ -2523,7 +2523,6 @@ static int stop_recognition(struct knowles_sound_trigger_device *stdev,
     }
     if (can_update_recover_list(stdev) == true) {
         update_recover_list(stdev, handle, false);
-        status = -EAGAIN;
         goto exit;
     }
 
@@ -2928,7 +2927,6 @@ static int stdev_start_recognition(
         // Device is in voice/VoIP call, add model to recover list first
         // recover model once voice/VoIP is ended.
         update_recover_list(stdev, handle, true);
-        status = -EAGAIN;
         goto exit;
     }
 
